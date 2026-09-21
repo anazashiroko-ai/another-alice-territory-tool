@@ -193,7 +193,7 @@ body{overflow-x:hidden;}
 <div id="twt-root">
   <div id="twt-header">
     <div>
-      <h1>領土戦 戦況分析 <span class="app-version">v0.7.1.1</span></h1>
+      <h1>領土戦 戦況分析 <span class="app-version">v0.7.1.3</span></h1>
       <button id="twt-helpbtn" type="button">基本操作説明（タップで開く）</button>
       <div class="sub" id="twt-week-sub">読み込み中…</div>
     </div>
@@ -293,7 +293,7 @@ body{overflow-x:hidden;}
         <h4>4. 最終順位が出たら確定する</h4>
         <p><span class="twt-help-path">戦況 → 実際の最終結果</span> で、ゲーム内で確定した東・西・南・北の<b>最終順位1〜4位</b>を入力します。</p>
         <p>お茶会の実績が分かる場合は「開催／不開催」を選び、記録が無ければ「不明」のままにします。</p>
-        <p>「この週の結果を確定する」を押すと、順位に応じた領土p増減（1位+3 / 2位+1 / 3位0 / 4位-2）が記録され、履歴と次週以降の判断に使われます。</p>
+        <p>「この週の結果を確定する」を押すと、順位に応じた領土p増減（1位+3 / 2位+1 / 3位0 / 4位-2）が記録され、履歴と次週以降の判断に使われます。誤って確定した場合は、同じ欄の「未確定に戻す」で確定結果だけを取り消せます。</p>
       </div>
 
       <div class="twt-help-step">
@@ -324,13 +324,13 @@ body{overflow-x:hidden;}
 </div>
 
 <script>
-// Standalone migration build: v0.7.1.1 (share/backup UI separation)
+// Standalone migration build: v0.7.1.3 (weeks can be deleted with confirmation)
 (function(){
   const startupWarning = document.getElementById('twt-startup-warning');
   if(startupWarning) startupWarning.remove();
   const WICCA = ['東','西','南','北'];
   const REPORT_ORDER = ['南','北','東','西'];
-  const APP_VERSION = '0.7.1.1';
+  const APP_VERSION = '0.7.1.3';
   const BACKUP_FILE_FORMAT = 'another-alice-territory-tool-backup';
   const BACKUP_FILE_VERSION = 1;
   const MOON_NAME = {東:'翠玉色の月', 西:'金色の月', 南:'真紅の月', 北:'薄紫の月'};
@@ -1145,6 +1145,48 @@ body{overflow-x:hidden;}
     if(needsHistoricalRankConfirmation(week)) return false;
     const rankMap = {}; results.forEach(r=>{ rankMap[r.wicca]=r.rankFinal; });
     return validateFinalRankMap(rankMap);
+  }
+  function clearFinalResultForWeek(weekId){
+    const week = getWeek(weekId);
+    if(!week || !hasConfirmedFinalResultSet(week)) return {ok:false, removed:0, reason:'not_confirmed'};
+    const before = state.weeklyResults.length;
+    state.weeklyResults = state.weeklyResults.filter(r=>r.weekId!==weekId);
+    return {ok:true, removed:before-state.weeklyResults.length};
+  }
+  function deleteWeekAndAssociatedData(weekId){
+    const week = getWeek(weekId);
+    if(!week) return {ok:false, reason:'not_found'};
+
+    const removedSnapshotIds = new Set(
+      state.snapshots.filter(s=>s.weekId===weekId).map(s=>s.id)
+    );
+    const counts = {
+      weeks: state.weeks.filter(w=>w.weekId===weekId).length,
+      snapshots: state.snapshots.filter(s=>s.weekId===weekId).length,
+      weeklyResults: state.weeklyResults.filter(r=>r.weekId===weekId).length,
+      weeklyPolicy: state.weeklyPolicy && state.weeklyPolicy[weekId] ? 1 : 0,
+      correctionLog: 0
+    };
+
+    state.weeks = state.weeks.filter(w=>w.weekId!==weekId);
+    state.snapshots = state.snapshots.filter(s=>s.weekId!==weekId);
+    state.weeklyResults = state.weeklyResults.filter(r=>r.weekId!==weekId);
+    if(state.weeklyPolicy) delete state.weeklyPolicy[weekId];
+
+    // 次週に引き継いだsnapshot自体は残すが、削除済みsnapshotへの参照だけ外す。
+    state.snapshots.forEach(s=>{
+      if(s.carriedFrom && removedSnapshotIds.has(s.carriedFrom)) s.carriedFrom = null;
+    });
+
+    const beforeLogs = state.correctionLog.length;
+    state.correctionLog = state.correctionLog.filter(log=>{
+      if(log.targetTable==='weeks' && log.targetId===weekId) return false;
+      if(log.targetTable==='snapshots' && removedSnapshotIds.has(log.targetId)) return false;
+      if(log.targetTable==='weeklyResults' && String(log.targetId||'').startsWith(`${weekId}-`)) return false;
+      return true;
+    });
+    counts.correctionLog = beforeLogs - state.correctionLog.length;
+    return {ok:true, removed:counts};
   }
   function analysisAvailability(week){
     if(!week) return {ok:false, reason:'no_week'};
@@ -2133,6 +2175,49 @@ body{overflow-x:hidden;}
       });
     });
 
+    add('P11', '確定結果：確定済み週を未確定へ戻すと4件の最終結果だけが削除される', ()=>{
+      const f = makePastConfirmedRegressionFixture();
+      withRegressionState(f.state, ()=>{
+        regressionAssertEqual(hasConfirmedFinalResultSet(getWeek(f.weekId)), true, '取り消し前は確定済み');
+        const weekCountBefore = state.weeks.length;
+        const snapshotCountBefore = state.snapshots.length;
+        const result = clearFinalResultForWeek(f.weekId);
+        regressionAssertEqual(result.ok, true, '取り消し処理');
+        regressionAssertEqual(result.removed, 4, '削除件数');
+        regressionAssertEqual(resultsForWeek(f.weekId).length, 0, '最終結果を削除');
+        regressionAssertEqual(hasConfirmedFinalResultSet(getWeek(f.weekId)), false, '取り消し後は未確定');
+        regressionAssertEqual(analysisAvailability(getWeek(f.weekId)).reason, 'past_unconfirmed', '過去週AIも未確定扱い');
+        regressionAssertEqual(state.weeks.length, weekCountBefore, '週データは保持');
+        regressionAssertEqual(state.snapshots.length, snapshotCountBefore, 'snapshotは保持');
+      });
+    });
+
+    add('P12', '週削除：対象週と紐づくデータだけを削除し、次週へ引き継いだ値は保持する', ()=>{
+      const f = makeRankingRegressionFixture();
+      const targetId = f.weekId;
+      const nextId = 'week-next-delete-test';
+      f.state.weeks.push({weekId:nextId, weekStart:'2026-09-21', weekEnd:'2026-09-27', moonTarget:'西', weekStatus:'NORMAL'});
+      const carriedSource = f.state.snapshots.find(s=>s.weekId===targetId);
+      f.state.snapshots.push({id:'carried-next', weekId:nextId, wicca:'東', snapshotType:'WEEK_START', capturedAt:'2026-09-21T00:00:00+09:00', wins:999, losses:111, isActive:true, carriedFrom:carriedSource ? carriedSource.id : null});
+      f.state.weeklyPolicy[targetId] = {desiredRank:{東:1,西:2,南:3,北:4}};
+      f.state.correctionLog.push({logId:'log-week-delete', targetTable:'weeks', targetId, fieldName:'moon', oldValue:'東', newValue:'西'});
+      withRegressionState(f.state, ()=>{
+        const nextBefore = state.snapshots.find(s=>s.id==='carried-next');
+        regressionAssertEqual(!!nextBefore, true, '次週引継ぎsnapshotあり');
+        const result = deleteWeekAndAssociatedData(targetId);
+        regressionAssertEqual(result.ok, true, '週削除処理');
+        regressionAssertEqual(getWeek(targetId), undefined, '対象週を削除');
+        regressionAssertEqual(state.snapshots.some(s=>s.weekId===targetId), false, '対象週snapshotを削除');
+        regressionAssertEqual(state.weeklyResults.some(r=>r.weekId===targetId), false, '対象週確定結果を削除');
+        regressionAssertEqual(Object.prototype.hasOwnProperty.call(state.weeklyPolicy,targetId), false, '対象週方針を削除');
+        regressionAssertEqual(state.correctionLog.some(l=>l.targetTable==='weeks' && l.targetId===targetId), false, '対象週訂正履歴を削除');
+        const nextAfter = state.snapshots.find(s=>s.id==='carried-next');
+        regressionAssertEqual(!!nextAfter, true, '次週snapshotは保持');
+        regressionAssertEqual(nextAfter.carriedFrom, null, '削除snapshotへの参照だけ解除');
+        regressionAssertEqual(!!getWeek(nextId), true, '別週は保持');
+      });
+    });
+
     add('B1', 'JSONバックアップ：ファイル形式ラッパーにstateと形式情報を含む', ()=>{
       const f = makeRankingRegressionFixture();
       withRegressionState(f.state, ()=>{
@@ -2368,7 +2453,9 @@ body{overflow-x:hidden;}
         <select id="week-actualmoonfix-select">${WICCA.map(w=>`<option value="${w}" ${(week.actualMoonTarget||'')===w?'selected':''}>${w}</option>`).join('')}</select>
         <div class="note">アイテム使用回数：${specialMoonItemUsedCount()}/${state.config.specialMoonItemTotalUses}回<span class="twt-tag est">推定</span></div>
       </div>
-      <button class="small" id="week-settingsfix-save" style="width:100%; margin-top:8px;">保存</button>`;
+      <button class="small" id="week-settingsfix-save" style="width:100%; margin-top:8px;">保存</button>
+      <button class="danger small" id="week-delete-btn" style="width:100%; margin-top:12px;">この週を削除</button>
+      <div class="twt-mini-note" style="margin-top:5px;">この週に紐づく週初・報告時点・確定結果・週別の方針も削除します。削除後は元に戻せません。</div>`;
     }
     html += `</div>`;
     html += `<div class="twt-card" style="${week.isEvent?'border-left:5px solid var(--danger, #d97757);':''}">
@@ -2560,6 +2647,23 @@ body{overflow-x:hidden;}
       await saveState();
       toast('週の設定を訂正しました。');
       recordSettingsFixOpen = false;
+      render();
+    };
+    const deleteWeekBtn = $('#week-delete-btn');
+    if(deleteWeekBtn) deleteWeekBtn.onclick = async ()=>{
+      const week = getWeek(selectedWeekId);
+      if(!week) return;
+      const ok = window.confirm(`この週（${fmtWeekBoundary(week)}）と、この週に紐づく入力・確定結果を削除します。\n\n本当に削除しますか？`);
+      if(!ok) return;
+      const deletedWeekId = week.weekId;
+      const result = deleteWeekAndAssociatedData(deletedWeekId);
+      if(!result.ok){ toast('週を削除できませんでした。'); return; }
+      const remaining = weeksSorted();
+      selectedWeekId = remaining.length ? remaining[remaining.length-1].weekId : null;
+      parseDrafts = { WEEK_START: null, REPORT: null };
+      recordSettingsFixOpen = false;
+      await saveState();
+      toast('週を削除しました。');
       render();
     };
     const evt = $('#week-event-toggle');
@@ -2755,6 +2859,7 @@ body{overflow-x:hidden;}
           ? '総満月・個別満月ボーナスなし'
           : weekStatusLabel(week.weekStatus);
     const already = state.weeklyResults.filter(r=>r.weekId===selectedWeekId);
+    const isConfirmed = hasConfirmedFinalResultSet(week);
     const suggestedRankMap = {}; WICCA.forEach(w=> suggestedRankMap[w]= calc.moonBonusApplicable ? calc.byWicca[w].rankWithMoon : calc.byWicca[w].rankSuggested);
     const eligHint = computeEligibilityForRank(suggestedRankMap, selectedWeekId).detail;
 
@@ -2765,7 +2870,7 @@ body{overflow-x:hidden;}
           <span class="twt-summary-chip"><strong>${escapeHtml(moonSummary)}</strong></span>
           <span class="twt-summary-chip">週経過 <strong>${Math.round(calc.elapsedFraction*100)}%</strong></span>
           ${calc.histAvg?`<span class="twt-summary-chip">過去平均比 <strong>${Math.round((calc.scaleRatio||0)*100)}%</strong></span>`:''}
-          ${already.length===4?'<span class="twt-summary-chip"><strong>結果確定済み</strong></span>':''}
+          ${isConfirmed?'<span class="twt-summary-chip"><strong>結果確定済み</strong></span>':''}
         </div>`;
     if(calc.earlyStage){
       html += `<div class="flag">序盤のため、現時点の差はまだ弱い判断材料です。</div>`;
@@ -2804,7 +2909,7 @@ body{overflow-x:hidden;}
       </div>`;
 
     html += `<div class="twt-section">
-      <div class="twt-section-head"><h3>実際の最終結果</h3>${already.length?'<span class="twt-tag confirmed">確定済み</span>':''}</div>
+      <div class="twt-section-head"><h3>実際の最終結果</h3>${isConfirmed?'<span class="twt-tag confirmed">確定済み</span>':''}</div>
       <div class="twt-mini-note">ゲーム内で確認した最終順位と、お茶会の開催／不開催／不明を入力します。</div>
       <div class="twt-input-grid" style="margin-top:7px;">`;
     const hintRows = [];
@@ -2828,7 +2933,12 @@ body{overflow-x:hidden;}
       </div>`;
     });
     html += `</div><button class="primary" id="confirm-week-btn" style="width:100%; margin-top:4px;">この週の結果を確定する</button>`;
-    if(already.length) html += `<div class="twt-mini-note" style="margin-top:5px;">再確定すると、この週の順位・領土p増減・お茶会実績を上書きします。</div>`;
+    if(isConfirmed){
+      html += `<button class="danger" id="unconfirm-week-btn" style="width:100%; margin-top:6px;">未確定に戻す</button>`;
+      html += `<div class="twt-mini-note" style="margin-top:5px;">再確定すると、この週の順位・領土p増減・お茶会実績を上書きできます。「未確定に戻す」は確定結果だけを取り消し、週初・報告時点の入力は残します。</div>`;
+    } else if(already.length){
+      html += `<div class="twt-mini-note" style="margin-top:5px;">保存済みの結果データがあります。確定すると、この週の順位・領土p増減・お茶会実績を上書きします。</div>`;
+    }
     if(hintRows.length){
       html += `<details class="twt-disclosure"><summary>お茶会資格の参考</summary><div class="twt-detail-body"><table class="twt-table"><tbody>${hintRows.join('')}</tbody></table></div></details>`;
     }
@@ -2839,6 +2949,7 @@ body{overflow-x:hidden;}
 
     body().innerHTML = html;
     $('#confirm-week-btn').onclick = onConfirmWeek;
+    if(isConfirmed && $('#unconfirm-week-btn')) $('#unconfirm-week-btn').onclick = onUnconfirmWeek;
   }
 
   function renderMoonCompass(week){
@@ -2922,6 +3033,24 @@ body{overflow-x:hidden;}
       });
     }
     await saveState();
+    render();
+  }
+
+  async function onUnconfirmWeek(){
+    const week = getWeek(selectedWeekId);
+    if(!week || !hasConfirmedFinalResultSet(week)){
+      toast('この週には取り消せる確定結果がありません。');
+      return;
+    }
+    const ok = window.confirm('この週の確定結果を取り消して未確定に戻します。週初・報告時点の入力は残ります。よろしいですか？');
+    if(!ok) return;
+    const result = clearFinalResultForWeek(selectedWeekId);
+    if(!result.ok){
+      toast('確定結果を未確定に戻せませんでした。');
+      return;
+    }
+    await saveState();
+    toast('この週の最終結果を未確定に戻しました。');
     render();
   }
 
