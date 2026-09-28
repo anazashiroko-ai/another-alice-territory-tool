@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-z1qrqlV0ESmzaT1E3aLzd8UKxZK6ilT0tKHVKOfxArU='; script-src-attr 'none'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; child-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="color-scheme" content="dark">
 <title>領土戦 戦況分析</title>
 <style>
@@ -23,11 +24,9 @@ body{overflow-x:hidden;}
     --warn: #d97757;
     --ok: #5fb98a;
   }
-  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap');
-
   *{box-sizing:border-box;}
   #twt-root{
-    font-family:'Zen Kaku Gothic New', sans-serif;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans JP','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;
     background:radial-gradient(ellipse at 50% -10%, #232338 0%, var(--bg) 55%);
     color:var(--ink);
     min-height:100vh;
@@ -35,8 +34,8 @@ body{overflow-x:hidden;}
     font-size:14px;
     line-height:1.6;
   }
-  #twt-root .num{font-family:'JetBrains Mono',monospace; font-variant-numeric:tabular-nums;}
-  #twt-root h1,#twt-root h2,#twt-root h3{font-family:'Cinzel',serif; letter-spacing:.03em; margin:0;}
+  #twt-root .num{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace; font-variant-numeric:tabular-nums;}
+  #twt-root h1,#twt-root h2,#twt-root h3{font-family:Georgia,'Yu Mincho','Hiragino Mincho ProN',serif; letter-spacing:.03em; margin:0;}
   #twt-header{
     padding:14px 16px 12px;
     border-bottom:1px solid var(--hairline);
@@ -60,7 +59,7 @@ body{overflow-x:hidden;}
   .twt-help-step h4{margin:0 0 4px; font-size:12px; color:var(--ink);}
   .twt-help-step p{margin:3px 0; font-size:11px; line-height:1.55; color:var(--ink-dim);}
   .twt-help-step b{color:var(--ink);}
-  .twt-help-path{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ok);}
+  .twt-help-path{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace; font-size:10.5px; color:var(--ok);}
   .twt-help-callout{margin-top:8px; padding:8px 9px; border:1px solid var(--hairline); border-radius:8px; background:var(--bg-card); font-size:11px; line-height:1.55; color:var(--ink-dim);}
   #twt-body{padding:14px;}
   .twt-card{
@@ -81,9 +80,9 @@ body{overflow-x:hidden;}
     border-radius:7px; padding:9px 10px; font-size:14px; font-family:inherit;
   }
   textarea{resize:vertical; min-height:70px; font-size:13px;}
-  textarea.mono{font-family:'JetBrains Mono',monospace; font-size:11.5px;}
+  textarea.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace; font-size:11.5px;}
   button{
-    font-family:'Zen Kaku Gothic New', sans-serif; font-weight:700; font-size:13px;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans JP','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif; font-weight:700; font-size:13px;
     border-radius:8px; border:1px solid var(--hairline); padding:10px 14px; cursor:pointer;
     background:var(--bg-elev); color:var(--ink);
   }
@@ -136,7 +135,7 @@ body{overflow-x:hidden;}
   .parse-ng{color:var(--warn); font-size:10px;}
   .checkline{display:flex; align-items:center; gap:8px; padding:6px 0; font-size:13px;}
   .checkline input[type=checkbox]{width:18px; height:18px;}
-  #report-output,#monday-template-output{white-space:pre-wrap; background:var(--bg-elev); border:1px solid var(--hairline); border-radius:8px; padding:12px; font-family:'JetBrains Mono',monospace; font-size:11.5px; line-height:1.7;}
+  #report-output,#monday-template-output{white-space:pre-wrap; background:var(--bg-elev); border:1px solid var(--hairline); border-radius:8px; padding:12px; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace; font-size:11.5px; line-height:1.7;}
   .radioline{display:flex; align-items:center; gap:6px; padding:5px 0; font-size:13px;}
   #twt-toast{position:fixed; left:50%; bottom:78px; transform:translateX(-50%); background:var(--bg-elev); border:1px solid var(--warn); color:var(--ink); padding:10px 16px; border-radius:20px; font-size:12px; z-index:50; max-width:90%; text-align:center; opacity:0; pointer-events:none;}
   #twt-toast.show{opacity:1;}
@@ -193,7 +192,7 @@ body{overflow-x:hidden;}
 <div id="twt-root">
   <div id="twt-header">
     <div>
-      <h1>領土戦 戦況分析 <span class="app-version">v0.7.1.3</span></h1>
+      <h1>領土戦 戦況分析 <span class="app-version">v0.7.1.5</span></h1>
       <button id="twt-helpbtn" type="button">基本操作説明（タップで開く）</button>
       <div class="sub" id="twt-week-sub">読み込み中…</div>
     </div>
@@ -207,12 +206,12 @@ body{overflow-x:hidden;}
   <div id="twt-restore-modal">
     <div class="modal-box">
       <h3>完全バックアップから復元</h3>
-      <div class="note">自分の全データを端末移行・復旧するための機能です。JSONバックアップファイルを選ぶか、完全バックアップテキストを貼り付けてください。読み込むと現在のデータは置き換えられます。通常の戦況共有には使いません。</div>
+      <div class="note">自分の全データを端末移行・復旧するための機能です。JSONバックアップファイルを選ぶか、完全バックアップテキストを貼り付けてください。読み込むと現在のデータは置き換えられます。通常の戦況共有には使いません。バックアップも、自分で保存したものか信頼できる相手から受け取ったものだけを読み込んでください。</div>
       <button class="primary small" id="restore-modal-filepick" type="button" style="width:100%; margin-top:10px;">JSONファイルを選ぶ</button>
       <input id="restore-modal-fileinput" type="file" accept=".json,application/json" style="display:none;">
       <div id="restore-modal-fileinfo" class="note" style="margin-top:5px;">ファイル未選択</div>
       <div class="note" style="text-align:center; margin:9px 0 5px;">── またはバックアップテキスト ──</div>
-      <textarea id="restore-modal-textarea" class="mono" placeholder="ここにバックアップテキストを貼り付け" style="min-height:120px; margin-top:4px;"></textarea>
+      <textarea id="restore-modal-textarea" class="mono" maxlength="5000000" placeholder="ここにバックアップテキストを貼り付け" style="min-height:120px; margin-top:4px;"></textarea>
       <div style="display:flex; gap:8px; margin-top:10px;">
         <button class="small" id="restore-modal-cancel" style="flex:1;">キャンセル</button>
         <button class="danger small" id="restore-modal-load" style="flex:1;">復元する</button>
@@ -245,8 +244,8 @@ body{overflow-x:hidden;}
         <button class="small" id="share-modal-close-send" type="button" style="width:100%; margin-top:8px;">閉じる</button>
       </div>
       <div id="share-receive-section" style="display:none;">
-        <div class="note">他のプレイヤーから受け取った戦況共有コードを読み込みます。読み込むと、この端末の戦況データは共有内容に置き換わります。自分のデータを残したい場合は、先に設定タブの「完全バックアップを保存」を使ってください。</div>
-        <textarea id="share-modal-input" class="mono" placeholder="TWTSH1: で始まる共有コードを貼り付け" style="min-height:130px; margin-top:8px;"></textarea>
+        <div class="note">他のプレイヤーから受け取った戦況共有コードを読み込みます。読み込むと、この端末の戦況データは共有内容に置き換わります。自分のデータを残したい場合は、先に設定タブの「完全バックアップを保存」を使ってください。<br><b>共有コードは、信頼できる相手から受け取ったものだけ読み込んでください。</b></div>
+        <textarea id="share-modal-input" class="mono" maxlength="800000" placeholder="TWTSH1: で始まる共有コードを貼り付け" style="min-height:130px; margin-top:8px;"></textarea>
         <div style="display:flex; gap:8px; margin-top:10px;">
           <button class="small" id="share-modal-close-receive" style="flex:1;">閉じる</button>
           <button class="danger small" id="share-modal-load" style="flex:1;">共有戦況を読み込む</button>
@@ -306,6 +305,7 @@ body{overflow-x:hidden;}
         <p>画面上部の <span class="twt-help-path">戦況を共有する</span> で、掲示板へ貼れる <b>TWTSH1:</b> 形式の共有コードを作れます。</p>
         <p>共有コードには、同じ戦況計算とAI相談を再現するために必要な現在値・確定履歴・領土p・お茶会情報・目標設定などを含めます。一方、訂正履歴や使われなくなった古い入力は省いて短くします。</p>
         <p>受け取った側は画面上部の <span class="twt-help-path">共有戦況を受け取る</span> に貼り付けます。<b>読み込みはその端末の戦況データを置き換えます。</b></p>
+        <p><b>共有コードは、信頼できる相手から受け取ったものだけ読み込んでください。</b></p>
         <p>端末移行や完全な保管には、<span class="twt-help-path">設定 → データのバックアップ → 完全バックアップを保存</span> を使ってください。</p>
       </div>
 
@@ -324,13 +324,13 @@ body{overflow-x:hidden;}
 </div>
 
 <script>
-// Standalone migration build: v0.7.1.3 (weeks can be deleted with confirmation)
+// Standalone migration build: v0.7.1.5 (security hardening: no third-party resources, strict import validation, CSP)
 (function(){
   const startupWarning = document.getElementById('twt-startup-warning');
   if(startupWarning) startupWarning.remove();
   const WICCA = ['東','西','南','北'];
   const REPORT_ORDER = ['南','北','東','西'];
-  const APP_VERSION = '0.7.1.3';
+  const APP_VERSION = '0.7.1.5';
   const BACKUP_FILE_FORMAT = 'another-alice-territory-tool-backup';
   const BACKUP_FILE_VERSION = 1;
   const MOON_NAME = {東:'翠玉色の月', 西:'金色の月', 南:'真紅の月', 北:'薄紫の月'};
@@ -444,27 +444,238 @@ body{overflow-x:hidden;}
     if(!storageAvailable()) return;
     try{
       const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if(raw){ const parsed = JSON.parse(raw); mergeIntoState(parsed); }
+      if(raw){
+        if(raw.length > SECURITY_LIMITS.backupJsonChars) throw new Error('保存データが大きすぎます');
+        const parsed = JSON.parse(raw); mergeIntoState(parsed);
+      }
     }catch(e){ /* 自動保存を読み込めない場合も、手動バックアップから復元可能 */ }
   }
+  const SECURITY_LIMITS = Object.freeze({
+    shareCodeChars: 800000,
+    shareDecodedChars: 5000000,
+    backupJsonChars: 5000000,
+    weeks: 1500,
+    snapshots: 30000,
+    weeklyResults: 10000,
+    correctionLogs: 20000,
+    freeTextChars: 4000
+  });
+  const DANGEROUS_KEYS = new Set(['__proto__','prototype','constructor']);
+  function isPlainObject(v){
+    if(!v || typeof v!=='object' || Array.isArray(v)) return false;
+    const proto = Object.getPrototypeOf(v);
+    return proto===Object.prototype || proto===null;
+  }
+  function rejectDangerousKeys(value, depth=0, counter={n:0}){
+    if(depth>24) throw new Error('データ構造が深すぎます');
+    if(value===null || typeof value!=='object') return;
+    counter.n++;
+    if(counter.n>120000) throw new Error('データ項目が多すぎます');
+    for(const key of Object.keys(value)){
+      if(DANGEROUS_KEYS.has(key)) throw new Error('危険なキーを含むデータです');
+      rejectDangerousKeys(value[key], depth+1, counter);
+    }
+  }
+  function assertPlainObject(v, label){ if(!isPlainObject(v)) throw new Error(`${label}が不正です`); }
+  function assertArray(v, label, max){ if(!Array.isArray(v) || v.length>max) throw new Error(`${label}が不正です`); }
+  function assertString(v, label, max=SECURITY_LIMITS.freeTextChars){
+    if(typeof v!=='string' || v.length>max || v.includes('\u0000')) throw new Error(`${label}が不正です`);
+  }
+  function assertOptionalString(v, label, max){ if(v!=null) assertString(v,label,max); }
+  function assertNumber(v, label, min=-1e12, max=1e12, integer=false){
+    if(typeof v!=='number' || !Number.isFinite(v) || v<min || v>max || (integer && !Number.isInteger(v))) throw new Error(`${label}が不正です`);
+  }
+  function assertOptionalNumber(v, label, min, max, integer=false){ if(v!=null) assertNumber(v,label,min,max,integer); }
+  function assertBoolean(v,label){ if(typeof v!=='boolean') throw new Error(`${label}が不正です`); }
+  function assertEnum(v, allowed, label, nullable=false){
+    if(nullable && v==null) return;
+    if(!allowed.includes(v)) throw new Error(`${label}が不正です`);
+  }
+  function isValidDateOnly(v){
+    if(typeof v!=='string' || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+    const d = new Date(v+'T00:00:00Z');
+    return Number.isFinite(d.getTime()) && d.toISOString().slice(0,10)===v;
+  }
+  function assertDateOnly(v,label){ if(!isValidDateOnly(v)) throw new Error(`${label}が不正です`); }
+  function assertTimestamp(v,label,nullable=false){
+    if(nullable && v==null) return;
+    assertString(v,label,64);
+    if(!/^[0-9T:+.Z-]+$/.test(v) || !Number.isFinite(Date.parse(v))) throw new Error(`${label}が不正です`);
+  }
+  function assertSafeId(v,label){
+    assertString(v,label,180);
+    if(!/^[\p{L}\p{N}_.:-]+$/u.test(v)) throw new Error(`${label}が不正です`);
+  }
+  function validateGoalMap(map,label){
+    if(map==null) return;
+    assertPlainObject(map,label);
+    for(const key of Object.keys(map)){
+      if(!WICCA.includes(key)) throw new Error(`${label}に未知のキーがあります`);
+      assertNumber(map[key],`${label}.${key}`,1,4,true);
+    }
+  }
+  function validateWeeklyPolicy(policy,label){
+    assertPlainObject(policy,label);
+    if(policy.desiredRank!=null) validateGoalMap(policy.desiredRank,`${label}.desiredRank`);
+    if(policy.goalPriorityMeta!=null){
+      const m=policy.goalPriorityMeta; assertPlainObject(m,`${label}.goalPriorityMeta`);
+      if(m.source!=null) assertString(m.source,`${label}.goalPriorityMeta.source`,24);
+      if(m.mode!=null) assertString(m.mode,`${label}.goalPriorityMeta.mode`,120);
+      validateGoalMap(m.primaryGoals,`${label}.goalPriorityMeta.primaryGoals`);
+      validateGoalMap(m.lowPriorityGoals,`${label}.goalPriorityMeta.lowPriorityGoals`);
+    }
+    if(policy.goalProposalInputs!=null){
+      const g=policy.goalProposalInputs; assertPlainObject(g,`${label}.goalProposalInputs`);
+      if(g.nextEvent!=null) assertEnum(g.nextEvent,['yes','no','unknown'],`${label}.nextEvent`);
+      if(g.nextEventDetail!=null) assertString(g.nextEventDetail,`${label}.nextEventDetail`,240);
+      if(g.ownCapacity!=null) assertEnum(g.ownCapacity,['high','normal','low','very_low','unknown'],`${label}.ownCapacity`);
+      if(g.rivalRun!=null){
+        assertPlainObject(g.rivalRun,`${label}.rivalRun`);
+        for(const key of Object.keys(g.rivalRun)){
+          if(!WICCA.includes(key)) throw new Error(`${label}.rivalRunに未知のキーがあります`);
+          assertEnum(g.rivalRun[key],['very_high','high','normal','low','unknown'],`${label}.rivalRun.${key}`);
+        }
+      }
+      if(g.specialNotes!=null) assertString(g.specialNotes,`${label}.specialNotes`,2000);
+    }
+  }
+  function validateStateData(s){
+    assertPlainObject(s,'state');
+    assertPlainObject(s.config,'config');
+    const c=s.config;
+    if(c.myWicca!=null) assertEnum(c.myWicca,WICCA,'config.myWicca');
+    if(c.moonCycle!=null){ assertArray(c.moonCycle,'config.moonCycle',8); c.moonCycle.forEach((v,i)=>assertEnum(v,WICCA,`config.moonCycle[${i}]`)); }
+    assertPlainObject(c.territoryInit,'config.territoryInit');
+    WICCA.forEach(w=>assertNumber(c.territoryInit[w],`config.territoryInit.${w}`,-1000000000,1000000000,false));
+    assertPlainObject(c.teaSeed,'config.teaSeed');
+    if(c.teaSeed.weekBeforeHost!=null){
+      assertPlainObject(c.teaSeed.weekBeforeHost,'config.teaSeed.weekBeforeHost');
+      for(const key of Object.keys(c.teaSeed.weekBeforeHost)){
+        if(!WICCA.includes(key)) throw new Error('お茶会初期値に未知のキーがあります');
+        assertBoolean(c.teaSeed.weekBeforeHost[key],`config.teaSeed.weekBeforeHost.${key}`);
+      }
+    }
+    assertBoolean(c.teaSeed.weekBeforeSuspended,'config.teaSeed.weekBeforeSuspended');
+    assertNumber(c.specialMoonItemTotalUses,'config.specialMoonItemTotalUses',0,1000,false);
+    assertNumber(c.bpEstimateCoeffA,'config.bpEstimateCoeffA',0,1000000,false);
+    assertNumber(c.bpEstimateCoeffB1,'config.bpEstimateCoeffB1',0,1000000,false);
+    assertNumber(c.bpEstimateCoeffB2,'config.bpEstimateCoeffB2',0,1000000,false);
+
+    assertArray(s.weeks,'weeks',SECURITY_LIMITS.weeks);
+    assertArray(s.snapshots,'snapshots',SECURITY_LIMITS.snapshots);
+    assertArray(s.correctionLog,'correctionLog',SECURITY_LIMITS.correctionLogs);
+    assertArray(s.weeklyResults,'weeklyResults',SECURITY_LIMITS.weeklyResults);
+    assertPlainObject(s.weeklyPolicy,'weeklyPolicy');
+
+    const weekIds=new Set();
+    s.weeks.forEach((w,i)=>{
+      assertPlainObject(w,`weeks[${i}]`); assertSafeId(w.weekId,`weeks[${i}].weekId`);
+      if(weekIds.has(w.weekId)) throw new Error('weekIdが重複しています'); weekIds.add(w.weekId);
+      assertDateOnly(w.weekStart,`weeks[${i}].weekStart`); assertDateOnly(w.weekEnd,`weeks[${i}].weekEnd`);
+      assertEnum(w.weekStatus,['NORMAL','TOTAL_FULL_MOON','TERRITORY_SUSPENDED','SPECIAL_MOON_ITEM'],`weeks[${i}].weekStatus`);
+      assertEnum(w.moonTarget,WICCA,`weeks[${i}].moonTarget`);
+      if(w.actualMoonTarget!=null) assertEnum(w.actualMoonTarget,WICCA,`weeks[${i}].actualMoonTarget`);
+      if(w.isEvent!=null) assertBoolean(w.isEvent,`weeks[${i}].isEvent`);
+      if(w.isBackfilled!=null) assertBoolean(w.isBackfilled,`weeks[${i}].isBackfilled`);
+      if(w.nextMoonOverride!=null) assertString(w.nextMoonOverride,`weeks[${i}].nextMoonOverride`,80);
+      if(w.createdAt!=null) assertTimestamp(w.createdAt,`weeks[${i}].createdAt`);
+    });
+
+    const snapIds=new Set();
+    s.snapshots.forEach((sn,i)=>{
+      assertPlainObject(sn,`snapshots[${i}]`); assertSafeId(sn.id,`snapshots[${i}].id`);
+      if(snapIds.has(sn.id)) throw new Error('snapshot idが重複しています'); snapIds.add(sn.id);
+      assertSafeId(sn.weekId,`snapshots[${i}].weekId`); if(!weekIds.has(sn.weekId)) throw new Error('snapshotの週参照が不正です');
+      assertEnum(sn.wicca,WICCA,`snapshots[${i}].wicca`); assertEnum(sn.snapshotType,['WEEK_START','REPORT'],`snapshots[${i}].snapshotType`);
+      assertTimestamp(sn.capturedAt,`snapshots[${i}].capturedAt`);
+      assertNumber(sn.wins,`snapshots[${i}].wins`,0,1000000000000,true); assertNumber(sn.losses,`snapshots[${i}].losses`,0,1000000000000,true);
+      assertNumber(sn.draws ?? 0,`snapshots[${i}].draws`,0,1000000000000,true);
+      assertOptionalNumber(sn.totalBattles,`snapshots[${i}].totalBattles`,0,1000000000000,true);
+      assertBoolean(sn.isActive,`snapshots[${i}].isActive`);
+      if(sn.enteredAt!=null) assertTimestamp(sn.enteredAt,`snapshots[${i}].enteredAt`);
+      if(sn.supersededBy!=null) assertSafeId(sn.supersededBy,`snapshots[${i}].supersededBy`);
+      if(sn.carriedFrom!=null) assertSafeId(sn.carriedFrom,`snapshots[${i}].carriedFrom`);
+    });
+
+    s.weeklyResults.forEach((r,i)=>{
+      assertPlainObject(r,`weeklyResults[${i}]`); assertSafeId(r.weekId,`weeklyResults[${i}].weekId`);
+      if(!weekIds.has(r.weekId)) throw new Error('weeklyResultsの週参照が不正です');
+      assertEnum(r.wicca,WICCA,`weeklyResults[${i}].wicca`);
+      assertNumber(r.weekWins ?? 0,`weeklyResults[${i}].weekWins`,0,1000000000000,true);
+      assertNumber(r.weekLosses ?? 0,`weeklyResults[${i}].weekLosses`,0,1000000000000,true);
+      assertNumber(r.netGain ?? ((r.weekWins||0)-(r.weekLosses||0)),`weeklyResults[${i}].netGain`,-1000000000000,1000000000000,true);
+      assertOptionalNumber(r.rankSuggested,`weeklyResults[${i}].rankSuggested`,1,4,true);
+      assertOptionalNumber(r.rankFinal,`weeklyResults[${i}].rankFinal`,1,4,true);
+      if(r.rankFinalSource!=null){ assertString(r.rankFinalSource,`weeklyResults[${i}].rankFinalSource`,48); if(!/^[A-Za-z0-9_-]+$/.test(r.rankFinalSource)) throw new Error('rankFinalSourceが不正です'); }
+      assertOptionalNumber(r.territoryDelta,`weeklyResults[${i}].territoryDelta`,-1000,1000,false);
+      assertNumber(r.territoryTotal ?? 0,`weeklyResults[${i}].territoryTotal`,-1000000000,1000000000,false);
+      if(r.teaHostFinal!=null) assertBoolean(r.teaHostFinal,`weeklyResults[${i}].teaHostFinal`);
+      if(r.teaHostUnknown!=null) assertBoolean(r.teaHostUnknown,`weeklyResults[${i}].teaHostUnknown`);
+      if(r.isBackfilled!=null) assertBoolean(r.isBackfilled,`weeklyResults[${i}].isBackfilled`);
+      if(r.isSuspendedResult!=null) assertBoolean(r.isSuspendedResult,`weeklyResults[${i}].isSuspendedResult`);
+      if(r.computedAt!=null) assertTimestamp(r.computedAt,`weeklyResults[${i}].computedAt`);
+    });
+
+    s.correctionLog.forEach((l,i)=>{
+      assertPlainObject(l,`correctionLog[${i}]`); assertSafeId(l.logId,`correctionLog[${i}].logId`);
+      assertEnum(l.targetTable,['weeks','snapshots','weeklyResults'],`correctionLog[${i}].targetTable`);
+      assertString(String(l.targetId ?? ''),`correctionLog[${i}].targetId`,260);
+      assertString(String(l.fieldName ?? ''),`correctionLog[${i}].fieldName`,120);
+      assertString(String(l.oldValue ?? ''),`correctionLog[${i}].oldValue`,2000);
+      assertString(String(l.newValue ?? ''),`correctionLog[${i}].newValue`,2000);
+      if(l.reason!=null) assertString(String(l.reason),`correctionLog[${i}].reason`,1000);
+      assertTimestamp(l.correctedAt,`correctionLog[${i}].correctedAt`);
+    });
+
+    const policyKeys=Object.keys(s.weeklyPolicy);
+    if(policyKeys.length>SECURITY_LIMITS.weeks) throw new Error('weeklyPolicyが多すぎます');
+    policyKeys.forEach(key=>{ assertSafeId(key,'weeklyPolicyの週ID'); validateWeeklyPolicy(s.weeklyPolicy[key],`weeklyPolicy.${key}`); });
+    return true;
+  }
+  function prepareStateCandidate(parsed){
+    rejectDangerousKeys(parsed);
+    if(!isPlainObject(parsed)) throw new Error('stateが不正です');
+    const candidate = JSON.parse(JSON.stringify(parsed));
+    const d = defaultState();
+    if(candidate.config==null) candidate.config = JSON.parse(JSON.stringify(d.config));
+    else if(!isPlainObject(candidate.config)) throw new Error('configが不正です');
+    if(candidate.config.moonCycle==null) candidate.config.moonCycle = [...d.config.moonCycle];
+    if(candidate.config.territoryInit==null) candidate.config.territoryInit = {...d.config.territoryInit};
+    else WICCA.forEach(w=>{ if(candidate.config.territoryInit[w]===undefined) candidate.config.territoryInit[w]=0; });
+    if(candidate.config.myWicca===undefined) candidate.config.myWicca = null;
+    if(candidate.config.teaSeed==null) candidate.config.teaSeed = JSON.parse(JSON.stringify(d.config.teaSeed));
+    else {
+      if(candidate.config.teaSeed.weekBeforeHost===undefined) candidate.config.teaSeed.weekBeforeHost=null;
+      if(candidate.config.teaSeed.weekBeforeSuspended===undefined) candidate.config.teaSeed.weekBeforeSuspended=false;
+    }
+    if(candidate.config.specialMoonItemTotalUses === undefined) candidate.config.specialMoonItemTotalUses = 5;
+    if(candidate.config.bpEstimateCoeffA === undefined) candidate.config.bpEstimateCoeffA = 8.06;
+    if(candidate.config.bpEstimateCoeffB1 === undefined) candidate.config.bpEstimateCoeffB1 = 0.26;
+    if(candidate.config.bpEstimateCoeffB2 === undefined) candidate.config.bpEstimateCoeffB2 = 2.68;
+    delete candidate.config.moonBonusEstimateWins;
+    delete candidate.config.lossPenaltyEstimate;
+    if(candidate.weeks==null) candidate.weeks=[];
+    if(candidate.snapshots==null) candidate.snapshots=[];
+    if(candidate.correctionLog==null) candidate.correctionLog=[];
+    if(candidate.weeklyResults==null) candidate.weeklyResults=[];
+    if(candidate.weeklyPolicy==null) candidate.weeklyPolicy={};
+    if(!Array.isArray(candidate.weeks) || !Array.isArray(candidate.snapshots) || !Array.isArray(candidate.correctionLog) || !Array.isArray(candidate.weeklyResults) || !isPlainObject(candidate.weeklyPolicy)) throw new Error('保存データの構造が不正です');
+    candidate.weeks.forEach(w=>{
+      if(!isPlainObject(w)) throw new Error('週データが不正です');
+      if(w.weekStatus===undefined) w.weekStatus='NORMAL';
+      normalizeWeekBoundary(w);
+    });
+    candidate.snapshots.forEach(sn=>{
+      if(!isPlainObject(sn)) throw new Error('勝敗データが不正です');
+      if(sn.isActive===undefined) sn.isActive=true;
+      if(sn.draws===undefined) sn.draws=0;
+    });
+    validateStateData(candidate);
+    return candidate;
+  }
   function mergeIntoState(parsed){
-    state = parsed;
-    if(!state.config) state.config = defaultState().config;
-    if(!state.config.teaSeed) state.config.teaSeed = defaultState().config.teaSeed;
-    if(state.config.specialMoonItemTotalUses === undefined) state.config.specialMoonItemTotalUses = 5;
-    if(state.config.bpEstimateCoeffA === undefined) state.config.bpEstimateCoeffA = 8.06;
-    if(state.config.bpEstimateCoeffB1 === undefined) state.config.bpEstimateCoeffB1 = 0.26;
-    if(state.config.bpEstimateCoeffB2 === undefined) state.config.bpEstimateCoeffB2 = 2.68;
-    // v0.5: 旧AI用の暫定値は廃止。古いバックアップに残っていても計算・AI文脈には使用しない。
-    delete state.config.moonBonusEstimateWins;
-    delete state.config.lossPenaltyEstimate;
-    if(!state.weeks) state.weeks = [];
-    if(!state.snapshots) state.snapshots = [];
-    if(!state.correctionLog) state.correctionLog = [];
-    if(!state.weeklyResults) state.weeklyResults = [];
-    if(!state.weeklyPolicy) state.weeklyPolicy = {};
-    // v0.6.6: weekEnd は weekStart から自動導出し、古いバックアップの1日ずれもここで正規化する。
-    state.weeks.forEach(normalizeWeekBoundary);
+    const candidate = prepareStateCandidate(parsed);
+    state = candidate;
   }
   async function saveState(){
     try{
@@ -520,7 +731,9 @@ body{overflow-x:hidden;}
     return btoa(bin);
   }
   function base64ToBytes(b64){
-    const bin = atob(String(b64 || '').replace(/\s+/g,''));
+    const src = String(b64 || '').replace(/\s+/g,'');
+    if(!/^[A-Za-z0-9+/]*={0,2}$/.test(src) || src.length%4===1) throw new Error('Base64形式が不正です');
+    const bin = atob(src);
     const out = new Array(bin.length);
     for(let i=0;i<bin.length;i++) out[i] = bin.charCodeAt(i);
     return out;
@@ -578,7 +791,7 @@ body{overflow-x:hidden;}
     codes.push(dict.get(w));
     return bytesToBase64(encodeVarints(codes));
   }
-  function lzwDecompressBase64ToUtf8(b64){
+  function lzwDecompressBase64ToUtf8(b64, maxOutputBytes=SECURITY_LIMITS.shareDecodedChars){
     const codes = decodeVarints(base64ToBytes(b64));
     if(!codes.length) return '';
     const dict = new Array(256);
@@ -588,12 +801,15 @@ body{overflow-x:hidden;}
     if(firstCode < 0 || firstCode > 255) throw new Error('共有コードの先頭が不正です');
     let w = dict[firstCode];
     const chunks = [w];
+    let outputLength = w.length;
     for(let i=1;i<codes.length;i++){
       const k = codes[i];
       let entry;
       if(k < dict.length && dict[k] !== undefined) entry = dict[k];
       else if(k === nextCode) entry = w + w.charAt(0);
       else throw new Error('共有コードを展開できません');
+      outputLength += entry.length;
+      if(outputLength > maxOutputBytes) throw new Error('共有コードの展開結果が大きすぎます');
       chunks.push(entry);
       dict[nextCode++] = w + entry.charAt(0);
       w = entry;
@@ -601,7 +817,9 @@ body{overflow-x:hidden;}
     const bin = chunks.join('');
     const bytes = new Array(bin.length);
     for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
-    return utf8DecodeBytes(bytes);
+    const out = utf8DecodeBytes(bytes);
+    if(out.length > SECURITY_LIMITS.shareDecodedChars) throw new Error('共有コードの展開結果が大きすぎます');
+    return out;
   }
 
   function cloneJson(value){ return JSON.parse(JSON.stringify(value)); }
@@ -819,10 +1037,16 @@ body{overflow-x:hidden;}
   }
   function parseShareCode(code){
     const src = String(code || '').trim();
+    if(src.length > SECURITY_LIMITS.shareCodeChars) throw new Error('共有コードが大きすぎます');
     if(!src.startsWith(SHARE_PREFIX)) throw new Error('TWTSH1形式ではありません');
-    const json = lzwDecompressBase64ToUtf8(src.slice(SHARE_PREFIX.length));
+    const json = lzwDecompressBase64ToUtf8(src.slice(SHARE_PREFIX.length), SECURITY_LIMITS.shareDecodedChars);
+    if(json.length > SECURITY_LIMITS.shareDecodedChars) throw new Error('共有コードの展開結果が大きすぎます');
     const compact = JSON.parse(json);
-    return compactToSharePayload(compact);
+    rejectDangerousKeys(compact);
+    const payload = compactToSharePayload(compact);
+    payload.state = prepareStateCandidate(payload.state);
+    if(payload.focusWeekId!=null && !payload.state.weeks.some(w=>w.weekId===payload.focusWeekId)) throw new Error('共有対象週が不正です');
+    return payload;
   }
   function openShareModal(mode){
     const receiveMode = mode === 'receive';
@@ -884,18 +1108,20 @@ body{overflow-x:hidden;}
     };
   }
   function extractStateFromBackupObject(parsed){
+    rejectDangerousKeys(parsed);
     if(parsed && parsed.format === BACKUP_FILE_FORMAT && parsed.state){
-      if(parsed.formatVersion !== undefined && Number(parsed.formatVersion) > BACKUP_FILE_VERSION){
-        throw new Error('このバックアップは新しい形式です');
+      if(parsed.formatVersion !== undefined && (!Number.isInteger(Number(parsed.formatVersion)) || Number(parsed.formatVersion)<1 || Number(parsed.formatVersion) > BACKUP_FILE_VERSION)){
+        throw new Error('このバックアップは未対応の形式です');
       }
       parsed = parsed.state;
     }
     if(!parsed || !Array.isArray(parsed.weeks) || !Array.isArray(parsed.snapshots)){
       throw new Error('バックアップ形式が不正です');
     }
-    return parsed;
+    return prepareStateCandidate(parsed);
   }
   function parseBackupJsonText(jsonText){
+    if(typeof jsonText!=='string' || jsonText.length > SECURITY_LIMITS.backupJsonChars) throw new Error('バックアップが大きすぎます');
     return extractStateFromBackupObject(JSON.parse(jsonText));
   }
   function backupFileName(){
@@ -938,14 +1164,20 @@ body{overflow-x:hidden;}
     return btoa(binary);
   }
   async function gunzipBase64ToString(b64){
-    const binary = atob(b64);
+    const src = String(b64 || '').replace(/\s+/g,'');
+    if(src.length > SECURITY_LIMITS.backupJsonChars) throw new Error('圧縮バックアップが大きすぎます');
+    if(!/^[A-Za-z0-9+/]*={0,2}$/.test(src) || src.length%4===1) throw new Error('圧縮バックアップ形式が不正です');
+    const binary = atob(src);
     const bytes = new Uint8Array(binary.length);
     for(let i=0;i<binary.length;i++) bytes[i] = binary.charCodeAt(i);
     const ds = new DecompressionStream('gzip');
     const writer = ds.writable.getWriter();
     writer.write(bytes); writer.close();
     const decompressed = await new Response(ds.readable).arrayBuffer();
-    return new TextDecoder().decode(decompressed);
+    if(decompressed.byteLength > SECURITY_LIMITS.backupJsonChars) throw new Error('展開後のバックアップが大きすぎます');
+    const out = new TextDecoder().decode(decompressed);
+    if(out.length > SECURITY_LIMITS.backupJsonChars) throw new Error('展開後のバックアップが大きすぎます');
+    return out;
   }
   async function openExportModal(){
     const raw = JSON.stringify(state);
@@ -995,6 +1227,7 @@ body{overflow-x:hidden;}
     try{
       let parsedState;
       if(file){
+        if(file.size > SECURITY_LIMITS.backupJsonChars) throw new Error('バックアップファイルが大きすぎます');
         const jsonText = await file.text();
         parsedState = parseBackupJsonText(jsonText);
       } else {
@@ -1002,6 +1235,7 @@ body{overflow-x:hidden;}
         if(pasted.startsWith(GZIP_PREFIX)){
           jsonText = await gunzipBase64ToString(pasted.slice(GZIP_PREFIX.length));
         } else {
+          if(pasted.length > SECURITY_LIMITS.backupJsonChars) throw new Error('バックアップテキストが大きすぎます');
           jsonText = pasted;
         }
         parsedState = parseBackupJsonText(jsonText);
@@ -1093,6 +1327,24 @@ body{overflow-x:hidden;}
   function teaHostStatusLabel(result){
     const v = teaHostStatusValue(result);
     return v==='true' ? '開催' : v==='false' ? '不開催' : '不明';
+  }
+  function completeTeaHostMap(hostMap){
+    // お茶会は毎週2ウィッカ開催。開催側または不開催側が2つ確定していれば、
+    // 残りの「不明」は条件計算上だけ反対側として補完できる。
+    // 保存値そのものは三値（開催／不開催／不明）のまま変更しない。
+    const completed = {};
+    WICCA.forEach(w=>{
+      if(hostMap && typeof hostMap[w] === 'boolean') completed[w] = hostMap[w];
+    });
+    const yes = WICCA.filter(w=>completed[w]===true);
+    const no = WICCA.filter(w=>completed[w]===false);
+    let inferred = false;
+    if(yes.length===2){
+      WICCA.forEach(w=>{ if(completed[w]===undefined){ completed[w]=false; inferred=true; } });
+    } else if(no.length===2){
+      WICCA.forEach(w=>{ if(completed[w]===undefined){ completed[w]=true; inferred=true; } });
+    }
+    return {hostMap:completed, inferred};
   }
   function validateFinalRankMap(rankMap){
     const vals = WICCA.map(w=>Number(rankMap && rankMap[w])).sort((a,b)=>a-b);
@@ -1191,14 +1443,14 @@ body{overflow-x:hidden;}
   function analysisAvailability(week){
     if(!week) return {ok:false, reason:'no_week'};
     if(week.weekStatus==='TERRITORY_SUSPENDED') return {ok:false, reason:'suspended'};
+    const calc = computeSuggestedRanking(week.weekId);
     if(isPastWeek(week)){
-      return hasConfirmedFinalResultSet(week)
-        ? {ok:true, kind:'past_confirmed'}
-        : {ok:false, reason:'past_unconfirmed'};
+      if(hasConfirmedFinalResultSet(week)) return {ok:true, kind:'past_confirmed'};
+      // 締め境界（月曜0:00）のREPORTは前週の最終スナップショットでもある。
+      // 最終順位が未確定でも、WEEK_START + REPORT が揃っていれば「締め後の最終報告」として分析可能にする。
+      return calc ? {ok:true, kind:'closed_snapshot'} : {ok:false, reason:'past_unconfirmed'};
     }
-    return computeSuggestedRanking(week.weekId)
-      ? {ok:true, kind:'current'}
-      : {ok:false, reason:'current_missing'};
+    return calc ? {ok:true, kind:'current'} : {ok:false, reason:'current_missing'};
   }
   function historicalWeekRange(year, parsed){
     const pad = n=>String(n).padStart(2,'0');
@@ -1216,6 +1468,44 @@ body{overflow-x:hidden;}
   function canAutoCarryForwardFromWeek(week){
     // 停止週中も累積勝敗数は動くため、停止週のREPORTを再開週の月曜0:00値として流用してはいけない。
     return !!week && week.weekStatus!=='TERRITORY_SUSPENDED';
+  }
+  function carryForwardReportToNextWeekStart(fromWeekId, createOptions){
+    const week = getWeek(fromWeekId);
+    if(!canAutoCarryForwardFromWeek(week)) return {ok:false, reason:'not_allowed'};
+    const nextStart = weekCloseDate(week);
+    let nextWeek = state.weeks.find(w=>w.weekStart===nextStart);
+    if(!nextWeek){
+      if(!createOptions) return {ok:false, reason:'next_week_missing', nextStart};
+      const nextEnd = canonicalWeekEnd(nextStart);
+      nextWeek = {
+        weekId:uid(), weekStart:nextStart, weekEnd:nextEnd,
+        moonTarget:createOptions.moonTarget, weekStatus:createOptions.weekStatus || 'NORMAL', createdAt:nowIso()
+      };
+      state.weeks.push(nextWeek);
+    }
+    let copied = 0;
+    const missing = [];
+    for(const w of WICCA){
+      const rp = activeSnapshots(week.weekId, w, 'REPORT')[0];
+      if(!rp){ missing.push(w); continue; }
+      const existing = activeSnapshots(nextWeek.weekId, w, 'WEEK_START')[0];
+      if(existing && existing.wins===rp.wins && existing.losses===rp.losses && (existing.draws||0)===(rp.draws||0) && existing.carriedFrom===rp.id){
+        copied++;
+        continue;
+      }
+      const newSnap = { id:uid(), weekId:nextWeek.weekId, wicca:w, snapshotType:'WEEK_START', capturedAt:rp.capturedAt,
+        totalBattles:rp.totalBattles, wins:rp.wins, losses:rp.losses, draws:rp.draws,
+        enteredAt:nowIso(), isActive:true, supersededBy:null, carriedFrom:rp.id };
+      if(existing){
+        existing.isActive = false; existing.supersededBy = newSnap.id;
+        state.correctionLog.push({ logId:uid(), targetTable:'snapshots', targetId:existing.id,
+          fieldName:'carry_forward', oldValue:`${existing.wins}/${existing.losses}`, newValue:`${newSnap.wins}/${newSnap.losses}`,
+          reason:'前週の報告データからの引き継ぎ', correctedAt:nowIso() });
+      }
+      state.snapshots.push(newSnap);
+      copied++;
+    }
+    return {ok:missing.length===0, reason:missing.length?'missing_report':null, nextWeek, nextStart, copied, missing};
   }
   function nextWeekMoonLabel(week){
     // 次週の開始境界は、今週の締め境界（月曜0:00）と同一。
@@ -1394,7 +1684,8 @@ body{overflow-x:hidden;}
     const w = getWeek(forWeekId);
     if(!w){
       const seed = state.config.teaSeed;
-      return { hostMap: seed.weekBeforeHost, suspended: !!seed.weekBeforeSuspended, source: 'seed' };
+      const completed = completeTeaHostMap(seed.weekBeforeHost);
+      return { hostMap: completed.hostMap, suspended: !!seed.weekBeforeSuspended, source: 'seed', inferred:completed.inferred };
     }
     // 停止週は順位結果を持たないためweeklyResultsには入らない。
     // それでも「停止週明けのお茶会は必ず1位・2位」というルールを使えるよう、まず直前の記録週そのものを見る。
@@ -1405,13 +1696,15 @@ body{overflow-x:hidden;}
     const priorConfirmed = confirmedWeeksDesc().find(cw => cw.weekStart < w.weekStart) || null;
     if(!priorConfirmed){
       const seed = state.config.teaSeed;
-      return { hostMap: seed.weekBeforeHost, suspended: !!seed.weekBeforeSuspended, source: 'seed' };
+      const completed = completeTeaHostMap(seed.weekBeforeHost);
+      return { hostMap: completed.hostMap, suspended: !!seed.weekBeforeSuspended, source: 'seed', inferred:completed.inferred };
     }
     const hostMap = {};
     state.weeklyResults.filter(r=>r.weekId===priorConfirmed.weekId).forEach(r=>{
-      if(!r.teaHostUnknown) hostMap[r.wicca] = r.teaHostFinal; // 不明フラグ付きは優先度判定から除外（undefinedのまま＝情報不足扱い）
+      if(!r.teaHostUnknown) hostMap[r.wicca] = r.teaHostFinal; // 不明フラグ付きは保存上は不明のまま保持
     });
-    return { hostMap, suspended:false, source: priorConfirmed.weekId };
+    const completed = completeTeaHostMap(hostMap);
+    return { hostMap:completed.hostMap, suspended:false, source: priorConfirmed.weekId, inferred:completed.inferred };
   }
 
   // rankMap（各ウィッカの確定 or 仮の順位）が分かっている場合の、実際の開催資格を算出
@@ -1951,7 +2244,7 @@ body{overflow-x:hidden;}
     });
 
     add('T3', 'お茶会資格：2位・3位の前週開催情報が欠けたら判定不可', ()=>{
-      const f = makeTeaRegressionFixture({hostMap:{東:true,南:false,北:true}}); // 西を意図的に欠落
+      const f = makeTeaRegressionFixture({hostMap:{東:true,南:false}}); // 2枠が未確定で、どちらが開催側か推定できない
       withRegressionState(f.state, ()=>{
         const r = computeEligibilityForRank({東:1,西:2,南:3,北:4}, f.weekId);
         regressionAssertEqual(r.detail['西'].eligible, null, '西2位');
@@ -1998,7 +2291,7 @@ body{overflow-x:hidden;}
     });
 
     add('C4', 'お茶会条件文：前週開催情報に欠落があればnull', ()=>{
-      const f = makeTeaRegressionFixture({hostMap:{東:false,西:false,南:true}}); // 北を意図的に欠落
+      const f = makeTeaRegressionFixture({hostMap:{東:false,南:true}}); // 2枠が未確定で、内訳を推定できない
       withRegressionState(f.state, ()=> regressionAssertEqual(deriveTeaConditions(f.weekId), null, '情報不足時の戻り値'));
     });
 
@@ -2027,6 +2320,16 @@ body{overflow-x:hidden;}
       withRegressionState(f.state, ()=>{
         const c = deriveTeaConditions(f.currentId);
         regressionAssertEqual(c.general, '【1位】【2位】（前週が領土戦停止週のため、優先度に関わらず1・2位が対象）', '停止週明けの条件文');
+      });
+    });
+
+    add('C6', 'お茶会条件：前週の開催2ウィッカだけ確定していれば残り2枠を不開催として補完', ()=>{
+      const f = makeTeaRegressionFixture({hostMap:{東:true,南:true}, actualPriorWeek:true});
+      withRegressionState(f.state, ()=>{
+        const basis = getTeaHostBasis(f.weekId);
+        regressionAssertEqual(basis.inferred, true, '不足2枠を推定補完');
+        regressionAssertObject(basis.hostMap, {東:true,西:false,南:true,北:false}, '開催2枠から全4枠を復元');
+        regressionAssert(!!deriveTeaConditions(f.weekId), '条件を算出できる');
       });
     });
 
@@ -2218,6 +2521,34 @@ body{overflow-x:hidden;}
       });
     });
 
+    add('P13', '締め済み未確定週：WEEK_START/REPORTが揃えば最終REPORTとして分析可能', ()=>{
+      const f = makeRankingRegressionFixture();
+      const w = f.state.weeks[0];
+      w.weekStart = '2020-01-06'; w.weekEnd = '2020-01-12';
+      f.state.snapshots.forEach(sn=>{ sn.capturedAt = sn.snapshotType==='WEEK_START' ? '2020-01-05T15:00:00.000Z' : '2020-01-12T15:00:00.000Z'; });
+      withRegressionState(f.state, ()=>{
+        regressionAssertEqual(analysisAvailability(getWeek(f.weekId)).kind, 'closed_snapshot', '締め後スナップショット分析');
+        withRegressionSelection(f.weekId, ()=> regressionAssert(buildAnalysisDataContext().includes('週間戦果・推定順位'), '未確定でも差分分析を生成'));
+      });
+    });
+
+    add('P14', '月曜0:00引継ぎ：前週REPORTを作成済み次週のWEEK_STARTへコピーできる', ()=>{
+      const f = makeRankingRegressionFixture();
+      const nextId = 'reg-carry-next';
+      f.state.weeks.push({weekId:nextId, weekStart:'2026-09-14', weekEnd:'2026-09-20', moonTarget:'東', weekStatus:'NORMAL'});
+      withRegressionState(f.state, ()=>{
+        const result = carryForwardReportToNextWeekStart(f.weekId, null);
+        regressionAssertEqual(result.ok, true, '引継ぎ成功');
+        WICCA.forEach(w=>{
+          const rp = activeSnapshots(f.weekId,w,'REPORT')[0];
+          const ws = activeSnapshots(nextId,w,'WEEK_START')[0];
+          regressionAssertEqual(ws.wins, rp.wins, `${w}勝数`);
+          regressionAssertEqual(ws.losses, rp.losses, `${w}敗数`);
+          regressionAssertEqual(ws.carriedFrom, rp.id, `${w}引継ぎ元`);
+        });
+      });
+    });
+
     add('B1', 'JSONバックアップ：ファイル形式ラッパーにstateと形式情報を含む', ()=>{
       const f = makeRankingRegressionFixture();
       withRegressionState(f.state, ()=>{
@@ -2292,6 +2623,93 @@ body{overflow-x:hidden;}
         regressionAssert(restoredFocus, '対象週データを含む');
         regressionAssertEqual(restoredFocus.weekStart, expectedStart, '選択中の週開始日');
       }));
+    });
+
+
+    add('SEC1', 'セキュリティ：危険キーを含むバックアップを拒否する', ()=>{
+      const f = makeRankingRegressionFixture();
+      const raw = JSON.stringify(f.state).replace(/^{/, '{"__proto__":{"polluted":true},');
+      let rejected=false;
+      try{ parseBackupJsonText(raw); }catch(e){ rejected=true; }
+      regressionAssert(rejected, '危険キーを拒否');
+      regressionAssertEqual({}.polluted, undefined, 'prototype汚染なし');
+    });
+
+    add('SEC2', 'セキュリティ：不正な共有データ（未知のウィッカ）を拒否する', ()=>{
+      const f = makeShareRegressionFixture();
+      withRegressionState(f.state, ()=> withRegressionSelection(f.weekId, ()=>{
+        const built = buildShareCode(f.weekId);
+        const compact = JSON.parse(built.json);
+        compact.c[0] = '<img src=x onerror=alert(1)>';
+        const bad = SHARE_PREFIX + lzwCompressUtf8ToBase64(JSON.stringify(compact));
+        let rejected=false;
+        try{ parseShareCode(bad); }catch(e){ rejected=true; }
+        regressionAssert(rejected, '未知のウィッカを拒否');
+      }));
+    });
+
+    add('SEC3', 'セキュリティ：不正な日付を含む共有データを拒否する', ()=>{
+      const f = makeShareRegressionFixture();
+      withRegressionState(f.state, ()=> withRegressionSelection(f.weekId, ()=>{
+        const built = buildShareCode(f.weekId);
+        const compact = JSON.parse(built.json);
+        compact.w[0][0] = 'not-a-date';
+        const bad = SHARE_PREFIX + lzwCompressUtf8ToBase64(JSON.stringify(compact));
+        let rejected=false;
+        try{ parseShareCode(bad); }catch(e){ rejected=true; }
+        regressionAssert(rejected, '不正日付を拒否');
+      }));
+    });
+
+    add('SEC4', 'セキュリティ：HTML文字列の本文・属性エスケープが効く', ()=>{
+      const sample='"/><img src=x onerror=alert(1)>&';
+      regressionAssert(!escapeHtml(sample).includes('<img'), '本文エスケープ');
+      regressionAssert(!escapeAttr(sample).includes('"'), '属性の引用符エスケープ');
+      regressionAssert(escapeAttr(sample).includes('&quot;'), '属性の引用符を実体参照化');
+    });
+
+    add('SEC5', 'セキュリティ：CSPで外部通信と外部スクリプトを禁止している', ()=>{
+      const meta = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
+      regressionAssert(meta, 'CSPメタタグ');
+      const csp = meta.getAttribute('content') || '';
+      regressionAssert(csp.includes("default-src 'none'"), 'default-src none');
+      regressionAssert(csp.includes("connect-src 'none'"), 'connect-src none');
+      regressionAssert(csp.includes("script-src-attr 'none'"), 'inlineイベント禁止');
+      const styleText = [...document.querySelectorAll('style')].map(s=>s.textContent||'').join('\n');
+      regressionAssert(!/@import\s+url|url\(\s*['\"]?https?:/i.test(styleText), '外部CSS参照なし');
+    });
+
+
+    add('SEC6', 'セキュリティ：不正な復元データでも現在stateを置き換えない', ()=>{
+      const f = makeRankingRegressionFixture();
+      withRegressionState(f.state, ()=>{
+        const before = state;
+        const bad = cloneJson(f.state);
+        bad.weeks[0].weekStart = '<svg onload=alert(1)>';
+        let rejected=false;
+        try{ mergeIntoState(bad); }catch(e){ rejected=true; }
+        regressionAssert(rejected, '不正データを拒否');
+        regressionAssertEqual(state, before, '拒否時は現在stateを保持');
+      });
+    });
+
+    add('SEC7', 'セキュリティ：訂正履歴の自由文字列をHTMLとして解釈しない', ()=>{
+      const s = defaultState();
+      s.correctionLog.push({
+        logId:'sec-log', targetTable:'weeks', targetId:'week-1',
+        fieldName:'<img src=x onerror=alert(1)>', oldValue:'<b>old</b>', newValue:'<svg onload=alert(1)>',
+        reason:'test', correctedAt:'2026-09-28T00:00:00.000Z'
+      });
+      const oldVisible = historyLogVisible, oldPage = historyLogPage;
+      try{
+        historyLogVisible = true; historyLogPage = 0;
+        withRegressionState(s, ()=>{
+          const html = renderHistoryLogSectionHtml();
+          regressionAssert(!html.includes('<img src=x'), 'imgタグを無害化');
+          regressionAssert(!html.includes('<svg onload=alert(1)>'), 'イベント属性付きタグを無害化');
+          regressionAssert(html.includes('&lt;img'), 'エスケープ済み文字として表示');
+        });
+      } finally { historyLogVisible = oldVisible; historyLogPage = oldPage; }
     });
 
     add('D3', '週境界：月曜開始から締め境界は7日後の月曜0:00', ()=>{
@@ -2404,7 +2822,7 @@ body{overflow-x:hidden;}
     const ws = weeksSorted();
     let html = `<div class="twt-card"><h3>対象週</h3>
       <select id="rc-week-select"><option value="">-- 週を選択 --</option>
-      ${ws.map(w=>`<option value="${w.weekId}" ${w.weekId===selectedWeekId?'selected':''}>${w.weekStart}（${moonDisplayLabel(w)}${w.isEvent?' / イベント':''}）</option>`).join('')}
+      ${ws.map(w=>`<option value="${escapeAttr(w.weekId)}" ${w.weekId===selectedWeekId?'selected':''}>${escapeHtml(w.weekStart)}（${escapeHtml(moonDisplayLabel(w))}${w.isEvent?' / イベント':''}）</option>`).join('')}
       </select>
       <button class="ghost small" id="rc-new-week-toggle" style="margin-top:8px; width:100%;">＋ 新しい週を作成</button>
       <div id="rc-new-week-form" style="display:none; margin-top:10px; border-top:1px solid var(--hairline); padding-top:10px;">
@@ -2433,12 +2851,12 @@ body{overflow-x:hidden;}
     html += `<div class="twt-card">
       <h3 id="week-settingsfix-toggle" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:8px;">
         <span>週の設定を訂正</span>
-        <span class="note" style="margin:0; text-align:right;">週初${week.weekStart} / 満月${moonDisplayLabel(week)} ${recordSettingsFixOpen?'▾':'▸'} ${recordSettingsFixOpen?'':'<strong class="twt-open-hint">タップで開く</strong>'}</span>
+        <span class="note" style="margin:0; text-align:right;">週初${escapeHtml(week.weekStart)} / 満月${escapeHtml(moonDisplayLabel(week))} ${recordSettingsFixOpen?'▾':'▸'} ${recordSettingsFixOpen?'':'<strong class="twt-open-hint">タップで開く</strong>'}</span>
       </h3>`;
     if(recordSettingsFixOpen){
       html += `<div class="note" style="margin-top:6px;">週を作成した際に日付や満月の対象を間違えた場合はここで直せます。既存の勝敗数などの入力データはそのまま保持されます。</div>
       <div style="display:flex; gap:8px; align-items:flex-end; margin-top:6px;">
-        <div style="flex:1;"><label class="twt-label">週開始（月曜0:00）</label><input type="date" id="week-datefix-start" value="${week.weekStart}"></div>
+        <div style="flex:1;"><label class="twt-label">週開始（月曜0:00）</label><input type="date" id="week-datefix-start" value="${escapeAttr(week.weekStart)}"></div>
         <div style="flex:1;"><label class="twt-label">締め境界</label><div class="note" style="margin:0; padding:9px 0;">${weekCloseDate(week)} 0:00</div></div>
       </div>
       <div class="note">週末（日曜）は週開始から自動計算します。月曜0:00の締め値は、同時に次週の開始値です。</div>
@@ -2539,11 +2957,25 @@ body{overflow-x:hidden;}
       <button class="small" data-parse-type="${type}" style="width:100%; margin-top:6px;">解析する</button>
       <div id="parse-preview-${type}" style="margin-top:10px;"></div>
       <div class="note">1ウィッカずつ貼り付けても構いません。「解析する」を押すたび、検出できたウィッカだけ更新されます（他のウィッカの入力済み内容は保持されます）。</div>`;
-    if(type==='REPORT' && already){
-      html += renderCarryForwardBlock();
+    if(type==='REPORT'){
+      html += `<div class="note" style="margin-top:8px;">この週の最終報告には、締め境界である次の月曜0:00の値を使用できます。その値は同時に次週の週初値です。</div>`;
+      if(already) html += renderCarryForwardBlock();
     }
+    if(type==='WEEK_START') html += renderPreviousCloseImportBlock();
     html += `</div>`;
     return html;
+  }
+
+  function renderPreviousCloseImportBlock(){
+    const week = getWeek(selectedWeekId);
+    const prev = previousRecordedWeek(selectedWeekId);
+    if(!week || !prev || !canAutoCarryForwardFromWeek(prev)) return '';
+    const allReports = WICCA.every(w=>activeSnapshots(prev.weekId, w, 'REPORT').length>0);
+    if(!allReports) return '';
+    const allStarts = WICCA.every(w=>activeSnapshots(week.weekId, w, 'WEEK_START').length>0);
+    return `<div class="note" style="margin-top:10px; border-top:1px solid var(--hairline); padding-top:10px;">
+      前週（${fmtWeekRange(prev.weekStart, prev.weekEnd)}）の最終REPORTが4ウィッカ分あります。月曜0:00の締め値を、この週の週初として${allStarts?'再取り込み（上書き）':'取り込み'}できます。</div>
+      <button class="ghost small" id="import-previous-close-btn" style="width:100%; margin-top:6px;">前週の最終報告をこの週の週初に取り込む</button>`;
   }
 
   function renderCarryForwardBlock(){
@@ -2692,6 +3124,8 @@ body{overflow-x:hidden;}
     if(cfb) cfb.onclick = ()=>{ const f = $('#carry-forward-form'); f.style.display = f.style.display==='none' ? 'block' : 'none'; };
     const cfc = $('#carry-forward-confirm-btn');
     if(cfc) cfc.onclick = onCarryForward;
+    const ipcb = $('#import-previous-close-btn');
+    if(ipcb) ipcb.onclick = onImportPreviousClose;
   }
 
   async function onCreateWeek(){
@@ -2717,36 +3151,37 @@ body{overflow-x:hidden;}
       return;
     }
     const nextStart = weekCloseDate(week);
-    let nextWeek = state.weeks.find(w=>w.weekStart===nextStart);
-    if(!nextWeek){
+    const existingNext = state.weeks.find(w=>w.weekStart===nextStart);
+    let createOptions = null;
+    if(!existingNext){
       const moonEl = $('#cf-moon');
       if(!moonEl){ toast('次週の満月・週タイプを選択してください。'); return; }
-      const nextEnd = canonicalWeekEnd(nextStart);
-      nextWeek = { weekId: uid(), weekStart: nextStart, weekEnd: nextEnd,
-        moonTarget: moonEl.value, weekStatus: document.querySelector('input[name="cf-status"]:checked').value, createdAt: nowIso() };
-      state.weeks.push(nextWeek);
+      createOptions = {moonTarget:moonEl.value, weekStatus:document.querySelector('input[name="cf-status"]:checked').value};
     }
-    // 現在の週のREPORTスナップショットを、次週のWEEK_STARTとしてコピーする
-    let copied = 0;
-    for(const w of WICCA){
-      const rp = activeSnapshots(week.weekId, w, 'REPORT')[0];
-      if(!rp) continue;
-      const existing = activeSnapshots(nextWeek.weekId, w, 'WEEK_START')[0];
-      const newSnap = { id:uid(), weekId:nextWeek.weekId, wicca:w, snapshotType:'WEEK_START', capturedAt: rp.capturedAt,
-        totalBattles: rp.totalBattles, wins: rp.wins, losses: rp.losses, draws: rp.draws,
-        enteredAt: nowIso(), isActive:true, supersededBy:null, carriedFrom: rp.id };
-      if(existing){
-        existing.isActive = false; existing.supersededBy = newSnap.id;
-        state.correctionLog.push({ logId: uid(), targetTable:'snapshots', targetId: existing.id,
-          fieldName:'carry_forward', oldValue:`${existing.wins}/${existing.losses}`, newValue:`${newSnap.wins}/${newSnap.losses}`,
-          reason:'前週の報告データからの引き継ぎ', correctedAt: nowIso() });
-      }
-      state.snapshots.push(newSnap);
-      copied++;
+    const result = carryForwardReportToNextWeekStart(week.weekId, createOptions);
+    if(!result.ok){
+      if(result.reason==='missing_report') toast(`REPORTが不足しています：${result.missing.join('・')}`);
+      else toast('次週へ引き継げませんでした。');
+      return;
     }
     await saveState();
-    toast(`次週（${nextStart}）の週初データに${copied}ウィッカ分を引き継ぎました。`);
-    selectedWeekId = nextWeek.weekId;
+    toast(`次週（${result.nextStart}）の週初データに${result.copied}ウィッカ分を引き継ぎました。`);
+    selectedWeekId = result.nextWeek.weekId;
+    render();
+  }
+
+  async function onImportPreviousClose(){
+    const currentWeek = getWeek(selectedWeekId);
+    const prev = previousRecordedWeek(selectedWeekId);
+    if(!currentWeek || !prev){ toast('前週が見つかりません。'); return; }
+    const result = carryForwardReportToNextWeekStart(prev.weekId, null);
+    if(!result.ok || !result.nextWeek || result.nextWeek.weekId!==currentWeek.weekId){
+      if(result.reason==='missing_report') toast(`前週REPORTが不足しています：${result.missing.join('・')}`);
+      else toast('前週の最終報告を週初へ取り込めませんでした。');
+      return;
+    }
+    await saveState();
+    toast('前週の最終報告を、この週の週初として取り込みました。');
     render();
   }
 
@@ -2965,7 +3400,7 @@ body{overflow-x:hidden;}
       : week.weekStatus==='TERRITORY_SUSPENDED' ? '領土戦停止週（満月ボーナスなし）'
       : week.weekStatus==='SPECIAL_MOON_ITEM' ? `${moonTargetEff}が満月対象（表記上は${week.moonTarget}・特殊アイテムで操作済み）`
       : `${week.moonTarget}が満月対象`;
-    return `<div class="twt-card"><h3 style="text-align:center">満月コンパス</h3><div class="moon-compass">${segs}</div><div class="note" style="text-align:center">${label}</div></div>`;
+    return `<div class="twt-card"><h3 style="text-align:center">満月コンパス</h3><div class="moon-compass">${segs}</div><div class="note" style="text-align:center">${escapeHtml(label)}</div></div>`;
   }
 
   function renderBpEstimateCard(calc){
@@ -3136,7 +3571,7 @@ ${myWicca ? `自ウィッカ${myWicca}:${territoryMap[myWicca]}p / ` : ''}${phas
     if(week.weekStatus==='TERRITORY_SUSPENDED'){
       return '（この週は領土戦停止週です。領土pは変動せず、累積勝敗数は増えますが、週間順位・BattlePoint・満月ボーナスによる戦況分析や戦術判断は行いません。停止週明けのお茶会条件は必ず1位または2位です。）';
     }
-    if(isPastWeek(week)) return buildConfirmedPastAnalysisDataContext(week);
+    if(isPastWeek(week) && hasConfirmedFinalResultSet(week)) return buildConfirmedPastAnalysisDataContext(week);
 
     const calc = computeSuggestedRanking(selectedWeekId);
     if(!calc) return '（週初・報告データが揃っていないため、戦況データはまだありません）';
@@ -3218,6 +3653,7 @@ ${goalProposalInputsText(selectedWeekId)}
           : '個別満月加算なし');
 
     const notes = [];
+    if(isPastWeek(week) && !hasConfirmedFinalResultSet(week)) notes.push('この週は締め境界を過ぎていますが最終順位は未確定です。WEEK_STARTと最終REPORTの差分を「締め後の最終報告」として扱っています。');
     notes.push(`BP予測式: ${calc.coeffA}×勝数 − ${calc.coeffB1}×min(敗数,勝数) − ${calc.coeffB2}×max(0,敗数−勝数)。非公式の暫定モデル。係数は約36分間・4ウィッカ分の限定データから作られ、北の検証点では約12.9%の誤差があったため、精密な境界値の根拠にはしない。`);
     notes.push(`満月: ${moonText}。+350,000BP自体は確定仕様。${territoryLeaderP < CONQUEST_THRESHOLD ? '現行運用ではまだ制覇前で枷システム未起動のため、満月半減は考慮しない。' : '100p以上の制覇判定域に入った後の枷状態はツールが自動追跡しない。'}通常戦果BPが推定であるため「満月込み順位」は推定。`);
     notes.push(`累積領土pは週間BP・週間順位とは別の長期戦略軸。自ウィッカとの相対差と、先頭が100p制覇までどれだけ近いかを攻撃先選択の補正材料として使う。90pは枷条件ではなく、制覇接近で行動変化が起きやすい経験則上の警戒域。`);
@@ -3415,7 +3851,7 @@ ${common}`;
     const availability = analysisAvailability(selectedWeek);
     let html = `<div class="twt-card">
       <h3>ChatGPT連携</h3>
-      <div class="note">このタブからAIへ直接送信はしません。対象週のデータを、ChatGPTに貼り付けられる自己完結したテキストへ変換します。<br>現在週はWEEK_START＋REPORTから、過去週は最終結果が確定している週だけ分析できます。「簡易版」はアナアリの文脈を既に知っているChatGPT向け、「完全版」は初見のChatGPT・他プレイヤー向けです。</div>
+      <div class="note">このタブからAIへ直接送信はしません。対象週のデータを、ChatGPTに貼り付けられる自己完結したテキストへ変換します。<br>現在週はWEEK_START＋REPORTから分析します。締め直後の未確定週も、月曜0:00の最終REPORTが揃っていれば最終報告として分析できます。最終結果を確定した過去週は保存済み実績で振り返ります。「簡易版」はアナアリの文脈を既に知っているChatGPT向け、「完全版」は初見のChatGPT・他プレイヤー向けです。</div>
       </div>`;
 
     if(!availability.ok){
@@ -3431,11 +3867,13 @@ ${common}`;
 
     if(availability.kind==='past_confirmed'){
       html += `<div class="twt-card"><div class="note"><span class="twt-tag confirmed">確定済み過去週</span> 最終順位・週間勝敗・領土p推移・満月情報・お茶会三値を保存済み実績として渡し、振り返り分析を行います。途中経過のWEEK_START / REPORTは要求しません。</div></div>`;
+    } else if(availability.kind==='closed_snapshot'){
+      html += `<div class="twt-card"><div class="note"><span class="twt-tag est">締め後・結果未確定</span> 月曜0:00の最終REPORTを含むWEEK_START / REPORT差分を、前週の最終報告として分析します。最終順位の確定実績ではありません。</div></div>`;
     }
 
     html += `<div class="twt-card">
       <label class="twt-label">相談したいこと（空欄でも可）</label>
-      <textarea id="chatgpt-question" style="min-height:100px;" placeholder="${availability.kind==='past_confirmed'?'例：この週の結果から、次回に活かせる点は？':'例：南を2位に残しつつ、西を4位に落とす方針は妥当？'}"></textarea>
+      <textarea id="chatgpt-question" style="min-height:100px;" placeholder="${availability.kind==='past_confirmed'?'例：この週の結果から、次回に活かせる点は？':availability.kind==='closed_snapshot'?'例：この最終報告から、今週の戦果をどう評価する？':'例：南を2位に残しつつ、西を4位に落とす方針は妥当？'}"></textarea>
       <label class="twt-label" style="margin-top:10px;">回答モード</label>
       <select id="chatgpt-answer-mode">
         <option value="concise" selected>簡潔 — 100〜250字</option>
@@ -3505,7 +3943,7 @@ ${common}`;
             <option value="no" ${goalInputs.nextEvent==='no'?'selected':''}>なし</option>
             <option value="yes" ${goalInputs.nextEvent==='yes'?'selected':''}>あり</option>
           </select>
-          <input id="goal-next-event-detail" type="text" style="margin-top:5px;" value="${escapeAttr(goalInputs.nextEventDetail)}" placeholder="任意：例）聖戦、魔女の祝祭">
+          <input id="goal-next-event-detail" type="text" maxlength="240" style="margin-top:5px;" value="${escapeAttr(goalInputs.nextEventDetail)}" placeholder="任意：例）聖戦、魔女の祝祭">
 
           <label class="twt-label" style="margin-top:8px;">今週、自ウィッカは領土戦を走る余力がある？</label>
           <select id="goal-own-capacity">
@@ -3528,7 +3966,7 @@ ${common}`;
       </select></div></div>`;
     });
     html += `<label class="twt-label" style="margin-top:7px;">その他、今週の特殊事情（任意）</label>
-          <textarea id="goal-special-notes" style="min-height:70px;" placeholder="例）主力不在、今週はなるべく休みたい、特定ウィッカが急に走っている等">${escapeHtml(goalInputs.specialNotes)}</textarea>
+          <textarea id="goal-special-notes" maxlength="2000" style="min-height:70px;" placeholder="例）主力不在、今週はなるべく休みたい、特定ウィッカが急に走っている等">${escapeHtml(goalInputs.specialNotes)}</textarea>
           <button class="primary small" id="copy-goal-proposal" style="width:100%; margin-top:6px;">入力を保存して、目標案の相談文をコピー</button>
           <textarea id="goal-proposal-packet" class="mono" readonly style="margin-top:6px; min-height:110px;" placeholder="相談文がここに表示されます"></textarea>
           <label class="twt-label" style="margin-top:8px;">ChatGPTの回答を貼り付け</label>
@@ -3730,7 +4168,7 @@ ${common}`;
       const current = selWeek.nextMoonOverride || auto || '';
       html += `<div class="twt-card"><h3>次週満月の確認（対象週: ${selWeek.weekStart}）</h3>
         <div class="note">${auto ? '次週の週データが既にツールに登録されているため、自動で参照できています。必要なら上書きできます。' : 'まだ次週のデータが無いため、手動で入力してください。'}レポートタブの戦況テンプレートに反映されます。</div>
-        <input type="text" id="next-moon-input" value="${escapeHtml(current)}" placeholder="例：南／総満月／領土戦停止週 など">
+        <input type="text" id="next-moon-input" maxlength="80" value="${escapeAttr(current)}" placeholder="例：南／総満月／領土戦停止週 など">
         <button class="small" id="save-next-moon-btn" style="width:100%; margin-top:6px;">保存</button></div>`;
     }
 
@@ -4241,17 +4679,17 @@ ${common}`;
       html += `<div class="twt-scroll-x"><table class="twt-table ${historyTerritoryEditMode?'twt-history-edit-table':''}" id="hist-territory-table"><thead><tr><th>週</th>${WICCA.map(w=>`<th ${w==='南'?'style="color:var(--south); font-weight:800;"':''}>${w}</th>`).join('')}</tr></thead><tbody>`;
       ws.forEach(w=>{
         const legacyRank = needsHistoricalRankConfirmation(w);
-        html += `<tr data-week-row="${w.weekId}" style="${historyTerritoryEditMode?'':'cursor:pointer;'}"><td>`;
+        html += `<tr data-week-row="${escapeAttr(w.weekId)}" style="${historyTerritoryEditMode?'':'cursor:pointer;'}"><td>`;
         if(historyTerritoryEditMode){
           html += `<div style="display:flex; flex-direction:column; gap:3px;">
-            <input type="date" data-weekstart-input="${w.weekId}" value="${w.weekStart}" style="width:120px; font-size:10.5px;">
+            <input type="date" data-weekstart-input="${escapeAttr(w.weekId)}" value="${escapeAttr(w.weekStart)}" style="width:120px; font-size:10.5px;">
             <span class="note" style="margin:0;">締め ${weekCloseDate(w)} 0:00</span>
             <label style="display:flex; align-items:center; gap:4px; font-size:10.5px; margin-top:2px;">
-              <input type="checkbox" data-event-input="${w.weekId}" ${w.isEvent?'checked':''}> イベント
+              <input type="checkbox" data-event-input="${escapeAttr(w.weekId)}" ${w.isEvent?'checked':''}> イベント
             </label>
           </div>`;
         } else {
-          html += `${fmtWeekRange(w.weekStart, w.weekEnd)}<span class="note" style="display:block;margin:0;">締め ${weekCloseDate(w)} 0:00</span> <span class="twt-tag">${moonDisplayLabel(w)}</span>${w.isEvent?' <span class="twt-tag est">イベント</span>':''}${legacyRank?' <span class="twt-tag est">順位要確認</span>':''} <span style="color:var(--ink-dim); font-size:10px;">▸ <strong class="twt-open-hint">タップで開く</strong></span>`;
+          html += `${fmtWeekRange(w.weekStart, w.weekEnd)}<span class="note" style="display:block;margin:0;">締め ${weekCloseDate(w)} 0:00</span> <span class="twt-tag">${escapeHtml(moonDisplayLabel(w))}</span>${w.isEvent?' <span class="twt-tag est">イベント</span>':''}${legacyRank?' <span class="twt-tag est">順位要確認</span>':''} <span style="color:var(--ink-dim); font-size:10px;">▸ <strong class="twt-open-hint">タップで開く</strong></span>`;
         }
         html += `</td>`;
         WICCA.forEach(wc=>{
@@ -4260,9 +4698,9 @@ ${common}`;
           if(historyTerritoryEditMode){
             const oldRankHint = legacyRank && r && r.rankFinal!=null ? `<span class="note" style="display:block;margin:2px 0 0;font-size:9px;">旧推定${r.rankFinal}位</span>` : '';
             const rankControl = legacyRank && r
-              ? `<select data-confirm-rank="${w.weekId}|${wc}" style="width:58px; padding:5px 2px; margin-top:3px; font-size:10px;"><option value="">順位?</option>${[1,2,3,4].map(n=>`<option value="${n}">${n}位</option>`).join('')}</select>${oldRankHint}`
+              ? `<select data-confirm-rank="${escapeAttr(w.weekId)}|${wc}" style="width:58px; padding:5px 2px; margin-top:3px; font-size:10px;"><option value="">順位?</option>${[1,2,3,4].map(n=>`<option value="${n}">${n}位</option>`).join('')}</select>${oldRankHint}`
               : '';
-            html += `<td><input type="number" data-territory-input="${w.weekId}|${wc}" value="${r? r.territoryTotal : ''}" style="width:56px; text-align:right; ${southStyle}" ${r?'':'disabled'}>${rankControl}</td>`;
+            html += `<td><input type="number" data-territory-input="${escapeAttr(w.weekId)}|${wc}" value="${r? r.territoryTotal : ''}" style="width:56px; text-align:right; ${southStyle}" ${r?'':'disabled'}>${rankControl}</td>`;
           } else {
             html += `<td class="num" style="${southStyle}">${r? r.territoryTotal : '-'}</td>`;
           }
@@ -4301,7 +4739,7 @@ ${common}`;
       if(historyLogPage < 0) historyLogPage = 0;
       const pageLogs = logs.slice(historyLogPage*PAGE_SIZE, historyLogPage*PAGE_SIZE + PAGE_SIZE);
       html += `<table class="twt-table"><thead><tr><th>日時</th><th>項目</th><th>旧</th><th>新</th></tr></thead><tbody>`;
-      pageLogs.forEach(l=>{ html += `<tr><td>${fmtTime(l.correctedAt)}</td><td>${l.fieldName}</td><td class="num">${l.oldValue}</td><td class="num">${l.newValue}</td></tr>`; });
+      pageLogs.forEach(l=>{ html += `<tr><td>${escapeHtml(fmtTime(l.correctedAt))}</td><td>${escapeHtml(l.fieldName)}</td><td class="num">${escapeHtml(l.oldValue)}</td><td class="num">${escapeHtml(l.newValue)}</td></tr>`; });
       html += `</tbody></table>`;
       if(totalPages > 1){
         html += `<div style="display:flex; align-items:center; justify-content:space-between; margin-top:8px;">
