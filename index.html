@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-z1qrqlV0ESmzaT1E3aLzd8UKxZK6ilT0tKHVKOfxArU='; script-src-attr 'none'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; child-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-ugC+xoNqdafUl+VkLVgCaJMxMMoSsX0MB/CCPR6R7bA='; script-src-attr 'none'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; child-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="color-scheme" content="dark">
 <title>領土戦 戦況分析</title>
 <style>
@@ -192,7 +192,7 @@ body{overflow-x:hidden;}
 <div id="twt-root">
   <div id="twt-header">
     <div>
-      <h1>領土戦 戦況分析 <span class="app-version">v0.7.1.5</span></h1>
+      <h1>領土戦 戦況分析 <span class="app-version">v0.7.1.6</span></h1>
       <button id="twt-helpbtn" type="button">基本操作説明（タップで開く）</button>
       <div class="sub" id="twt-week-sub">読み込み中…</div>
     </div>
@@ -278,6 +278,7 @@ body{overflow-x:hidden;}
         <p>戦況を確認したい時点で、もう一度ゲーム内の4ウィッカの<b>累積勝数・累積敗数</b>を取得します。</p>
         <p><span class="twt-help-path">記録 → ② 報告時点（現在）の入力</span> にその数字を貼り付け、「解析する」→保存します。</p>
         <p>ツールが <b>報告時点 − 月曜0:00</b> を計算し、その週の勝数・敗数を出します。<span class="twt-help-path">戦況</span> タブで予測BP、満月込み推定順位などを確認できます。</p>
+        <p>BP推定は「旧経験式」「新・試験モデル」を戦況または設定で切り替えられます。係数と実測比較は戦況の折りたたみ「計算根拠・内訳」から確認できます。どちらも公式BPではありません。</p>
         <p>週の途中で再確認したい場合は、同じ「② 報告時点」に最新値を入力します。</p>
       </div>
 
@@ -324,18 +325,40 @@ body{overflow-x:hidden;}
 </div>
 
 <script>
-// Standalone migration build: v0.7.1.5 (security hardening: no third-party resources, strict import validation, CSP)
+// Standalone migration build: v0.7.1.6 (selectable empirical BP experiments, verified benchmark)
 (function(){
   const startupWarning = document.getElementById('twt-startup-warning');
   if(startupWarning) startupWarning.remove();
   const WICCA = ['東','西','南','北'];
   const REPORT_ORDER = ['南','北','東','西'];
-  const APP_VERSION = '0.7.1.5';
+  const APP_VERSION = '0.7.1.6';
+  // 旧係数は保存された既存利用者の設定を維持する。新係数は比較試験用の固定値。
+  const BP_MODELS = Object.freeze({legacy:'旧経験式', experimental:'新・試験モデル'});
+  const BP_EXPERIMENTAL = Object.freeze({a:8.056, b1:2.559, b2:3.972});
+  const BP_VALIDATION_20261003 = Object.freeze([
+    {wicca:'東',wins:8247,losses:6855,actualBP:23858},
+    {wicca:'西',wins:10097,losses:8007,actualBP:61150},
+    {wicca:'南',wins:7676,losses:12173,actualBP:24337},
+    {wicca:'北',wins:4975,losses:3969,actualBP:29327}
+  ]);
+  function selectedBpModel(){ return state && state.config.bpEstimateModel === 'experimental' ? 'experimental' : 'legacy'; }
+  function bpModelCoefficients(modelId){
+    if(modelId === 'experimental') return {a:BP_EXPERIMENTAL.a,b1:BP_EXPERIMENTAL.b1,b2:BP_EXPERIMENTAL.b2};
+    return {a:state.config.bpEstimateCoeffA,b1:state.config.bpEstimateCoeffB1,b2:state.config.bpEstimateCoeffB2};
+  }
+  function predictBattlePoint(wins, losses, coefficients){
+    return coefficients.a*wins - coefficients.b1*Math.min(losses,wins)
+      - coefficients.b2*Math.max(0,losses-wins);
+  }
+  function bpModelOptionsHtml(current){
+    return `<option value="legacy" ${current==='legacy'?'selected':''}>旧経験式（保存済み係数）</option>
+      <option value="experimental" ${current==='experimental'?'selected':''}>新・試験モデル（8.056 / 2.559 / 3.972）</option>`;
+  }
   const BACKUP_FILE_FORMAT = 'another-alice-territory-tool-backup';
   const BACKUP_FILE_VERSION = 1;
   const MOON_NAME = {東:'翠玉色の月', 西:'金色の月', 南:'真紅の月', 北:'薄紫の月'};
   const RANK_DELTA = {1:3, 2:1, 3:0, 4:-2};
-  const MOON_BONUS_BP = 350000; // お茶会での公式回答：満月の勝利 = 350,000pt = 迎撃勝利350回分
+  const MOON_BONUS_BP = 350000; // 満月の公式加算値。戦闘種別の最終BP換算式は未解明。
   const CONQUEST_THRESHOLD = 100;
   const CONQUEST_WATCH_THRESHOLD = 90; // 枷条件ではなく、制覇接近で行動が変わりやすい経験則上の警戒域
   const SHACKLE_GAP = 21;
@@ -414,7 +437,8 @@ body{overflow-x:hidden;}
         specialMoonItemTotalUses: 5,
         bpEstimateCoeffA: 8.06,
         bpEstimateCoeffB1: 0.26,
-        bpEstimateCoeffB2: 2.68
+        bpEstimateCoeffB2: 2.68,
+        bpEstimateModel: 'legacy'
       },
       weeks: [],
       snapshots: [],
@@ -560,6 +584,7 @@ body{overflow-x:hidden;}
     assertNumber(c.bpEstimateCoeffA,'config.bpEstimateCoeffA',0,1000000,false);
     assertNumber(c.bpEstimateCoeffB1,'config.bpEstimateCoeffB1',0,1000000,false);
     assertNumber(c.bpEstimateCoeffB2,'config.bpEstimateCoeffB2',0,1000000,false);
+    assertEnum(c.bpEstimateModel,Object.keys(BP_MODELS),'config.bpEstimateModel');
 
     assertArray(s.weeks,'weeks',SECURITY_LIMITS.weeks);
     assertArray(s.snapshots,'snapshots',SECURITY_LIMITS.snapshots);
@@ -652,6 +677,7 @@ body{overflow-x:hidden;}
     if(candidate.config.bpEstimateCoeffA === undefined) candidate.config.bpEstimateCoeffA = 8.06;
     if(candidate.config.bpEstimateCoeffB1 === undefined) candidate.config.bpEstimateCoeffB1 = 0.26;
     if(candidate.config.bpEstimateCoeffB2 === undefined) candidate.config.bpEstimateCoeffB2 = 2.68;
+    if(candidate.config.bpEstimateModel === undefined) candidate.config.bpEstimateModel = 'legacy';
     delete candidate.config.moonBonusEstimateWins;
     delete candidate.config.lossPenaltyEstimate;
     if(candidate.weeks==null) candidate.weeks=[];
@@ -841,7 +867,7 @@ body{overflow-x:hidden;}
     const shared = defaultState();
     shared.config = pickDefined(state.config, [
       'moonCycle','territoryInit','myWicca','teaSeed','specialMoonItemTotalUses',
-      'bpEstimateCoeffA','bpEstimateCoeffB1','bpEstimateCoeffB2'
+      'bpEstimateCoeffA','bpEstimateCoeffB1','bpEstimateCoeffB2','bpEstimateModel'
     ]);
     shared.weeks = state.weeks.map(w=>pickDefined(w, [
       'weekId','weekStart','weekEnd','moonTarget','weekStatus','actualMoonTarget',
@@ -932,7 +958,8 @@ body{overflow-x:hidden;}
       st.config.specialMoonItemTotalUses ?? 5,
       st.config.bpEstimateCoeffA ?? 8.06,
       st.config.bpEstimateCoeffB1 ?? 0.26,
-      st.config.bpEstimateCoeffB2 ?? 2.68
+      st.config.bpEstimateCoeffB2 ?? 2.68,
+      st.config.bpEstimateModel === 'experimental' ? 1 : 0
     ];
     const w = weeks.map(week=>[
       week.weekStart,
@@ -978,6 +1005,7 @@ body{overflow-x:hidden;}
     st.config.bpEstimateCoeffA = Number(c[5] ?? 8.06);
     st.config.bpEstimateCoeffB1 = Number(c[6] ?? 0.26);
     st.config.bpEstimateCoeffB2 = Number(c[7] ?? 2.68);
+    st.config.bpEstimateModel = c[8]===1 ? 'experimental' : 'legacy';
     const statuses = ['NORMAL','TOTAL_FULL_MOON','TERRITORY_SUSPENDED','SPECIAL_MOON_ITEM'];
     st.weeks = compact.w.map((a,i)=>{
       if(!Array.isArray(a) || !a[0]) throw new Error('週データが不正です');
@@ -1596,7 +1624,7 @@ body{overflow-x:hidden;}
     return vals.reduce((a,b)=>a+b,0)/vals.length;
   }
 
-  function computeSuggestedRanking(weekId){
+  function computeSuggestedRanking(weekId, modelOverride=null){
     const week = getWeek(weekId);
     if(!week) return null;
     const rows = [];
@@ -1608,17 +1636,15 @@ body{overflow-x:hidden;}
       const weekLosses = rp.losses - ws.losses;
       rows.push({ wicca:w, weekWins, weekLosses, netGain: weekWins-weekLosses, wsSnap:ws, rpSnap:rp });
     }
-    // BP自動予測：1勝あたりの価値(a)は固定、敗戦ペナルティは「敗数が勝数を超えた分」から重くなる
+    // BP自動予測：Wicca集計値に対する経験係数。aはゲーム内部の1勝のBP単価ではない。
     // 2段階モデルで計算する（お茶会での実測データから逆算した非公式の推定値で、確定した計算式ではない）。
     // BP ≈ a×勝数 − b1×min(敗数,勝数) − b2×max(0, 敗数−勝数)
     // b1: 敗数が勝数以下の間の通常ペナルティ／b2: 敗数が勝数を超えた分にかかる加重ペナルティ（b2 > b1）
-    const coeffA = state.config.bpEstimateCoeffA;
-    const coeffB1 = state.config.bpEstimateCoeffB1;
-    const coeffB2 = state.config.bpEstimateCoeffB2;
+    const modelId = modelOverride || selectedBpModel();
+    const coefficients = bpModelCoefficients(modelId);
+    const coeffA = coefficients.a, coeffB1 = coefficients.b1, coeffB2 = coefficients.b2;
     rows.forEach(r=>{
-      const normalLosses = Math.min(r.weekLosses, r.weekWins);
-      const excessLosses = Math.max(0, r.weekLosses - r.weekWins);
-      r.predictedBP = coeffA*r.weekWins - coeffB1*normalLosses - coeffB2*excessLosses;
+      r.predictedBP = predictBattlePoint(r.weekWins,r.weekLosses,coefficients);
       r.lossWinRatio = r.weekWins>0 ? r.weekLosses/r.weekWins : (r.weekLosses>0 ? Infinity : 0);
     });
     const rankMetric = r => r.predictedBP;
@@ -1626,7 +1652,7 @@ body{overflow-x:hidden;}
     sorted.forEach((r,i)=> r.rankSuggested = i+1);
 
     // 満月ボーナス込み推定順位。
-    // 満月の勝利は公式回答で350,000BP（迎撃勝利350回分）と確認済みのため、勝数換算は行わずBPへ直接加算する。
+    // 満月 +350,000BP は確定。迎撃等の最終BPは換算式不明なので比較対象にしない。
     // ただし通常戦果側のpredictedBPは非公式推定であり、枷状態も自動追跡していないため、最終順位自体は推定のまま。
     const moonBonusBP = MOON_BONUS_BP;
     const moonBonusApplicable = (week.weekStatus==='NORMAL' || week.weekStatus==='SPECIAL_MOON_ITEM');
@@ -1676,7 +1702,7 @@ body{overflow-x:hidden;}
     const byWicca = {}; sorted.forEach(r=> byWicca[r.wicca]=r);
     return { week, rows: sorted, byWicca, latestCapturedAt,
       earlyStage, elapsedFraction, elapsedHours, histAvg, scaleRatio,
-      moonBonusApplicable, moonBonusBP, moonTargetEff, coeffA, coeffB1, coeffB2 };
+      moonBonusApplicable, moonBonusBP, moonTargetEff, coeffA, coeffB1, coeffB2, modelId };
   }
 
   // ---------- お茶会：1週間ラグモデル（今週の資格 = 今週自身の順位 ＋ 直近確定週の開催実績） ----------
@@ -2199,6 +2225,62 @@ body{overflow-x:hidden;}
       });
     });
 
+    add('BM1', 'BP新試験係数：2026年10月3日4件の値を再現', ()=>{
+      const expected={東:48896,西:60852,南:24333,北:29922};
+      const c=bpModelCoefficients('experimental');
+      regressionAssertObject(c,{a:8.056,b1:2.559,b2:3.972},'試験係数');
+      BP_VALIDATION_20261003.forEach(r=>{
+        const actual=Math.round(predictBattlePoint(r.wins,r.losses,c));
+        regressionAssertEqual(actual,expected[r.wicca],r.wicca+'試験予測');
+      });
+    });
+    add('BM2', 'BPモデル切替：旧式を維持し、選択モデルの順位だけが変わる', ()=>{
+      const f=makeRankingRegressionFixture({weekStatus:'TOTAL_FULL_MOON'});
+      withRegressionState(f.state,()=>{
+        const old=computeSuggestedRanking(f.weekId,'legacy');
+        f.state.config.bpEstimateModel='experimental';
+        const trial=computeSuggestedRanking(f.weekId);
+        regressionAssertEqual(old.modelId,'legacy','旧式指定');
+        regressionAssertEqual(trial.modelId,'experimental','試験切替');
+        regressionAssertApprox(old.byWicca['東'].predictedBP,320256.56,1e-6,'旧式は現状維持');
+        regressionAssert(trial.byWicca['東'].predictedBP!==old.byWicca['東'].predictedBP,'モデル差が出る');
+        regressionAssertEqual(trial.moonBonusApplicable,false,'総満月では加算禁止');
+      });
+    });
+    add('BM3', 'BPモデル切替：過去バックアップは旧式扱い、試験選択は保存・検証可能', ()=>{
+      const f=makeRankingRegressionFixture();
+      delete f.state.config.bpEstimateModel;
+      const restored=prepareStateCandidate(f.state);
+      regressionAssertEqual(restored.config.bpEstimateModel,'legacy','従来データの既定値');
+      restored.config.bpEstimateModel='experimental';
+      regressionAssertEqual(prepareStateCandidate(restored).config.bpEstimateModel,'experimental','試験モード復元');
+    });
+    add('BM4', 'BP新旧比較：満月ボーナスは素BPに含まず、既存の対象だけ順位へ反映', ()=>{
+      const f=makeRankingRegressionFixture({weekStatus:'SPECIAL_MOON_ITEM',moonTarget:'北',actualMoonTarget:'西'});
+      withRegressionState(f.state,()=>{
+        for(const id of Object.keys(BP_MODELS)){
+          const r=computeSuggestedRanking(f.weekId,id);
+          regressionAssertEqual(r.moonTargetEff,'西','特殊満月対象');
+          regressionAssertEqual(r.moonBonusApplicable,true,'満月適用');
+          for(const w of WICCA){
+            const row=r.byWicca[w];
+            regressionAssertApprox(row.predictedBP,predictBattlePoint(row.weekWins,row.weekLosses,bpModelCoefficients(id)),1e-6,id+w);
+          }
+        }
+      });
+    });
+    add('BM5', 'BP試験モデル：戦況共有コード往復で選択が維持される', ()=>{
+      const f=makeShareRegressionFixture();
+      f.state.config.bpEstimateModel='experimental';
+      withRegressionState(f.state,()=>withRegressionSelection(f.weekId,()=>{
+        const before=buildAnalysisDataContext();
+        const payload=parseShareCode(buildShareCode(f.weekId).code);
+        regressionAssertEqual(payload.state.config.bpEstimateModel,'experimental','共有復元モード');
+        withRegressionState(payload.state,()=>withRegressionSelection(payload.focusWeekId,()=>{
+          regressionAssertEqual(buildAnalysisDataContext(),before,'試験中の分析文面を共有再現');
+        }));
+      }));
+    });
     add('R3', '特殊効果週：表記上の満月ではなくactualMoonTargetへ350,000BPを加える', ()=>{
       const f = makeRankingRegressionFixture({weekStatus:'SPECIAL_MOON_ITEM', moonTarget:'北', actualMoonTarget:'西'});
       withRegressionState(f.state, ()=>{
@@ -3306,7 +3388,12 @@ body{overflow-x:hidden;}
           <span class="twt-summary-chip">週経過 <strong>${Math.round(calc.elapsedFraction*100)}%</strong></span>
           ${calc.histAvg?`<span class="twt-summary-chip">過去平均比 <strong>${Math.round((calc.scaleRatio||0)*100)}%</strong></span>`:''}
           ${isConfirmed?'<span class="twt-summary-chip"><strong>結果確定済み</strong></span>':''}
-        </div>`;
+        </div>
+        <div class="twt-row" style="align-items:center; margin-top:8px;">
+          <label for="status-bp-model" style="flex:1; min-width:90px;">BP推定モデル</label>
+          <select id="status-bp-model" style="flex:2; min-width:0;">${bpModelOptionsHtml(calc.modelId)}</select>
+        </div>
+        <div class="twt-mini-note">${BP_MODELS[calc.modelId]}で予測中。BPと順位は非公式の推定値です。モデルを切り替えると戦況・レポート・AI相談の計算も切り替わります。</div>`;
     if(calc.earlyStage){
       html += `<div class="flag">序盤のため、現時点の差はまだ弱い判断材料です。</div>`;
     }
@@ -3335,6 +3422,7 @@ body{overflow-x:hidden;}
     html += `<details class="twt-disclosure"><summary>計算根拠・内訳・満月コンパス</summary><div class="twt-detail-body">
       ${renderMoonCompass(week)}
       ${renderBpEstimateCard(calc)}
+      ${renderBpCompareCard(selectedWeekId)}
       <div class="note">スナップショット内訳</div>`;
     calc.rows.forEach(r=>{
       html += `<div class="twt-mini-note"><span class="dot ${r.wicca}"></span>${r.wicca}：報告 ${r.rpSnap.wins.toLocaleString()}勝/${r.rpSnap.losses.toLocaleString()}敗（${fmtTime(r.rpSnap.capturedAt)}） − 週初 ${r.wsSnap.wins.toLocaleString()}勝/${r.wsSnap.losses.toLocaleString()}敗（${fmtTime(r.wsSnap.capturedAt)}）${r.zoneNote?` ／ ${r.zoneNote}`:''}</div>`;
@@ -3383,6 +3471,12 @@ body{overflow-x:hidden;}
     html += `</div></div></div>`;
 
     body().innerHTML = html;
+    const modelSwitch = $('#status-bp-model');
+    if(modelSwitch) modelSwitch.onchange = async ()=>{
+      state.config.bpEstimateModel = modelSwitch.value;
+      await saveState();
+      render();
+    };
     $('#confirm-week-btn').onclick = onConfirmWeek;
     if(isConfirmed && $('#unconfirm-week-btn')) $('#unconfirm-week-btn').onclick = onUnconfirmWeek;
   }
@@ -3405,8 +3499,8 @@ body{overflow-x:hidden;}
 
   function renderBpEstimateCard(calc){
     let html = `<div class="twt-card">
-      <h3>BP自動予測 <span class="twt-tag est">推定</span></h3>
-      <div class="note">現在の週間勝数・敗数から、設定タブの係数（1勝あたり${calc.coeffA}pt／1敗あたり${calc.coeffB1}pt減点・敗数が勝数を超えた分は1敗あたり${calc.coeffB2}pt減点）で予測したBattlePointです。満月ボーナスは含みません。「目安順位」はこの予測値を基準にしています。係数は約36分間・4ウィッカ分の限定データから作った暫定モデルで、精密値ではありません。</div>
+      <h3>BP自動予測 <span class="twt-tag est">${BP_MODELS[calc.modelId]}・推定</span></h3>
+      <div class="note">週間勝数・敗数に a=${calc.coeffA}、b1=${calc.coeffB1}、b2=${calc.coeffB2} を適用した${BP_MODELS[calc.modelId]}の非公式推定BPです。満月ボーナスは含まず、順位も推定です。新モデルは2026/10/3の限定的な観測を受けた試験式で、特に東の誤差が大きく、公式式ではありません。</div>
       <table class="twt-table"><thead><tr><th>ウィッカ</th><th>週間勝/敗</th><th>予測BP</th><th>敗/勝比</th></tr></thead><tbody>`;
     [...calc.rows].sort((a,b)=>a.rankSuggested-b.rankSuggested).forEach(r=>{
       const ratioText = r.lossWinRatio===Infinity ? '∞' : r.lossWinRatio.toFixed(2);
@@ -3416,6 +3510,34 @@ body{overflow-x:hidden;}
     html += `</tbody></table>
       <div class="note" style="margin-top:6px;">⚠のあるウィッカ（敗数が勝数を超えている）は、超過分の敗戦に1敗あたり${calc.coeffB2}pt（通常の${(calc.coeffB2/calc.coeffB1).toFixed(1)}倍）の重い減点を既に加味して計算しています。</div>
     </div>`;
+    return html;
+  }
+
+  function renderBpCompareCard(weekId){
+    const oldCalc = computeSuggestedRanking(weekId,'legacy');
+    const trialCalc = computeSuggestedRanking(weekId,'experimental');
+    if(!oldCalc || !trialCalc) return '';
+    let html = `<details class="twt-disclosure"><summary>開発用：新旧モデル比較・10/3実測検証</summary><div class="twt-detail-body">
+      <div class="note">現在週の週間勝敗を、旧式と試験式に同時適用した比較です。各モデルの推定BPに満月ボーナスは含めず、順位欄には既存の満月適用判定による順位を示します。</div>
+      <div style="overflow-x:auto;"><table class="twt-table"><thead><tr><th>ウィッカ</th><th>旧予測BP</th><th>新予測BP</th><th>旧順位</th><th>新順位</th></tr></thead><tbody>`;
+    for(const w of WICCA){
+      const a=oldCalc.byWicca[w], b=trialCalc.byWicca[w];
+      const rank = r => r.rankWithMoon ?? r.rankSuggested;
+      html += `<tr><td>${w}</td><td class="num">${Math.round(a.predictedBP).toLocaleString()}</td><td class="num">${Math.round(b.predictedBP).toLocaleString()}</td><td class="num">${rank(a)}</td><td class="num">${rank(b)}</td></tr>`;
+    }
+    html += `</tbody></table></div>
+      <div class="note">別週の検証標本（2026/10/3 23:17頃）。以下は当時の週間勝敗を直接式に代入した参考値で、現在週の戦況・満月ボーナスとは無関係です。差は「予測−実測」です。旧式には設定タブで保存中の係数を使用します。</div>
+      <div style="overflow-x:auto;"><table class="twt-table"><thead><tr><th>ウィッカ</th><th>実測BP</th><th>旧予測／差</th><th>新予測／差</th></tr></thead><tbody>`;
+    const oldCoeff=bpModelCoefficients('legacy'), trialCoeff=bpModelCoefficients('experimental');
+    for(const row of BP_VALIDATION_20261003){
+      const oldBP=Math.round(predictBattlePoint(row.wins,row.losses,oldCoeff));
+      const trialBP=Math.round(predictBattlePoint(row.wins,row.losses,trialCoeff));
+      const fmtError = n => (n>0?'+':'')+n.toLocaleString();
+      html += `<tr><td>${row.wicca}</td><td class="num">${row.actualBP.toLocaleString()}</td><td class="num">${oldBP.toLocaleString()} / ${fmtError(oldBP-row.actualBP)}</td><td class="num">${trialBP.toLocaleString()} / ${fmtError(trialBP-row.actualBP)}</td></tr>`;
+    }
+    html += `</tbody></table></div>
+      <div class="note">東の大きな過大予測は未解決です。南は係数推定の調整対象で独立検証ではありません。敗戦時点の重減点仮説は、この累積値式では厳密には表現できません。</div>
+      </div></details>`;
     return html;
   }
 
@@ -3654,7 +3776,7 @@ ${goalProposalInputsText(selectedWeekId)}
 
     const notes = [];
     if(isPastWeek(week) && !hasConfirmedFinalResultSet(week)) notes.push('この週は締め境界を過ぎていますが最終順位は未確定です。WEEK_STARTと最終REPORTの差分を「締め後の最終報告」として扱っています。');
-    notes.push(`BP予測式: ${calc.coeffA}×勝数 − ${calc.coeffB1}×min(敗数,勝数) − ${calc.coeffB2}×max(0,敗数−勝数)。非公式の暫定モデル。係数は約36分間・4ウィッカ分の限定データから作られ、北の検証点では約12.9%の誤差があったため、精密な境界値の根拠にはしない。`);
+    notes.push(`BP予測式: ${BP_MODELS[calc.modelId]}（a=${calc.coeffA}, b1=${calc.coeffB1}, b2=${calc.coeffB2}）: a×勝数 − b1×min(敗数,勝数) − b2×max(0,敗数−勝数)。非公式の暫定モデルであり、確定式ではない。2026/10/3の新モデル実測比較では東の過大予測が大きいため、精密な境界値の根拠にしない。`);
     notes.push(`満月: ${moonText}。+350,000BP自体は確定仕様。${territoryLeaderP < CONQUEST_THRESHOLD ? '現行運用ではまだ制覇前で枷システム未起動のため、満月半減は考慮しない。' : '100p以上の制覇判定域に入った後の枷状態はツールが自動追跡しない。'}通常戦果BPが推定であるため「満月込み順位」は推定。`);
     notes.push(`累積領土pは週間BP・週間順位とは別の長期戦略軸。自ウィッカとの相対差と、先頭が100p制覇までどれだけ近いかを攻撃先選択の補正材料として使う。90pは枷条件ではなく、制覇接近で行動変化が起きやすい経験則上の警戒域。`);
     if(calc.earlyStage) notes.push(`週の経過は約${Math.round(calc.elapsedFraction*100)}%。序盤のため順位・差は参考程度。`);
@@ -3681,6 +3803,7 @@ ${teaText}
   }
 
   function buildChatGPTRuleset(){
+    const activeCoefficients=bpModelCoefficients(selectedBpModel());
     return `【アナザー×アリス 領土戦：初見AI向け最小ルールセット v${CHATGPT_RULESET_VERSION}】
 このツールは、東・西・南・北の4ウィッカによる週単位の領土戦を記録・分析する。
 
@@ -3689,8 +3812,8 @@ ${teaText}
 - あるウィッカが別ウィッカへ仕掛けて勝利した場合、攻撃側ウィッカに勝数+1、対象ウィッカに敗数+1として集計される。
 - 敗戦にはBattlePoint上の減点が存在すること自体は確定している。ただし、正確な減点式・減点量は非公開である。下記のb1/b2は、その大きさを近似するためのツール推定値にすぎない。
 - アクティブへ仕掛けて攻撃側が負けた場合、そのバトルで攻撃側の得点は0。相手側には迎撃勝利のポイントが入る。そのため、勝たせたいウィッカのアクティブへ意図的に挑んで負けることが、相手を押し上げる順位調整として機能する場合がある。
-- バトル価値の基本倍率は、魂なきアナザー/非アクティブへの仕掛け勝利×1、アクティブへの仕掛け勝利×100、アクティブへのリベンジ勝利×1000、迎撃勝利×1000。さらに「自身の」勝率による価値の加算変動があり、100%時の加算値は100p。
-- 満月の勝利価値は350,000BP（迎撃勝利350回分）。総満月ではボーナスはどこにも発生しない。特殊効果週では表記上の満月対象と実際のボーナス対象が異なることがある。
+- バトル価値の基本倍率は、魂なきアナザー/非アクティブへの仕掛け勝利×1、アクティブへの仕掛け勝利×100、アクティブへのリベンジ勝利×1000、迎撃勝利×1000。「自身の」勝率による加算値は100%時100、99%以下では1という二段階式。ただし最終BPへの換算式は未解明。
+- 満月の勝利価値は350,000BP（確定）。個別バトルの最終BP換算式は未確定。総満月ではボーナスはどこにも発生しない。特殊効果週では表記上の満月対象と実際のボーナス対象が異なることがある。
 - 「お茶会」の開催資格は最終順位と直近週の開催実績が絡むため、ツール側で計算する。AIはツール出力のお茶会情報を再計算しない。
 - 自ウィッカ自身は攻撃対象にできない。
 
@@ -3710,7 +3833,7 @@ ${teaText}
 
 ■ツールの推定モデル
 - 個々のバトル種別・勝率を集計値から分解できないため、週間順位の目安には勝敗数だけから算出する経験的な予測BattlePointを使う。
-- BP予測式は a×勝数 − b1×min(敗数,勝数) − b2×max(0,敗数−勝数)。現在の係数はa=8.06、b1=0.26、b2=2.68だが、約36分間・4ウィッカ分の限定データから作った暫定値である。北の検証点では約12.9%の誤差があった。
+- BP予測式は a×勝数 − b1×min(敗数,勝数) − b2×max(0,敗数−勝数)。使用モデル=${BP_MODELS[selectedBpModel()]}、現在の係数 a=${activeCoefficients.a}、b1=${activeCoefficients.b1}、b2=${activeCoefficients.b2}。公式式ではなく経験的推定値。新モデルの2026/10/3比較では東の過大予測が大きい。
 - したがって、予測BPから「12,928勝」のような精密な戦術境界を確定値として扱わない。必要なら「約1.3万規模」のように丸め、実データ更新ごとに再評価する。
 - 満月ボーナス+350,000BP自体は確定値で、制覇前フェーズでは枷による半減はない。通常戦果BPが推定であるため「満月込み推定順位」は最終順位の確定値ではない。制覇発生後は、本ツールが枷状態を自動追跡しないため別途確認が必要。
 
@@ -4180,15 +4303,20 @@ ${common}`;
     });
     html += `<button class="small" id="save-territory-btn">初期値を保存</button></div>`;
 
-    html += `<div class="twt-card"><h3>BP予測の係数 <span class="twt-tag est">推定</span></h3>
-      <div class="note">「戦況」タブの目安順位が使う予測式の係数です。約36分間・4ウィッカ分の実測BattlePointから逆算した非公式の暫定値で、北の検証点では約12.9%の誤差がありました。精密な境界値の算出には向きません。式：BP ≈ a×勝数 − b1×min(敗数,勝数) − b2×max(0, 敗数−勝数)（敗数が勝数を超えた分だけ重いペナルティがかかる、という仮説モデルです）。</div>
-      <div class="twt-row"><div style="flex:2">a（1勝あたりの価値）</div><div><input type="number" step="0.01" id="bp-coeff-a" value="${c.bpEstimateCoeffA}"></div></div>
-      <div class="twt-row"><div style="flex:2">b1（敗数≤勝数の間、1敗あたりの減点）</div><div><input type="number" step="0.01" id="bp-coeff-b1" value="${c.bpEstimateCoeffB1}"></div></div>
-      <div class="twt-row"><div style="flex:2">b2（敗数が勝数を超えた分、1敗あたりの減点）</div><div><input type="number" step="0.01" id="bp-coeff-b2" value="${c.bpEstimateCoeffB2}"></div></div>
-      <button class="small" id="save-bpcoeff-btn" style="width:100%; margin-top:6px;">保存</button></div>`;
+    html += `<div class="twt-card"><h3>BP推定モデル <span class="twt-tag est">試験機能</span></h3>
+      <div class="note">旧モデルを維持したまま、新しい経験係数を試せます。切替は戦況・レポート・ChatGPT相談へ共通で適用されます。どちらも公式式ではありません。</div>
+      <label class="twt-label" for="settings-bp-model">使用モデル</label>
+      <select id="settings-bp-model" style="width:100%;">${bpModelOptionsHtml(selectedBpModel())}</select>
+      <div class="note" style="margin-top:7px;">旧式の現在の保存係数 a=${c.bpEstimateCoeffA}, b1=${c.bpEstimateCoeffB1}, b2=${c.bpEstimateCoeffB2}（以前のアプリ既定値8.06/0.26/2.68を維持）。研究資料上の詳細旧係数は8.056/0.257/2.678です。旧式係数は下で編集できます。試験モデルは固定 a=8.056, b1=2.559, b2=3.972。両モデルとも BP ≈ a×勝数 − b1×min(敗数,勝数) − b2×max(0,敗数−勝数)。</div>
+      <div class="twt-row"><div style="flex:2">旧式 a（集計上の経験係数）</div><div><input type="number" step="0.001" id="bp-coeff-a" value="${c.bpEstimateCoeffA}"></div></div>
+      <div class="twt-row"><div style="flex:2">b1（敗数≤勝数の間、1敗あたりの減点）</div><div><input type="number" step="0.001" id="bp-coeff-b1" value="${c.bpEstimateCoeffB1}"></div></div>
+      <div class="twt-row"><div style="flex:2">b2（敗数が勝数を超えた分、1敗あたりの減点）</div><div><input type="number" step="0.001" id="bp-coeff-b2" value="${c.bpEstimateCoeffB2}"></div></div>
+      <button class="small" id="bp-legacy-preset-btn" style="width:100%; margin-top:6px;">旧式を詳細値（8.056 / 0.257 / 2.678）へ入力</button>
+      <button class="small" id="save-bpcoeff-btn" style="width:100%; margin-top:6px;">使用モデル・旧式係数を保存</button>
+      <div class="twt-mini-note">詳細旧係数の入力は保存ボタンを押すまで反映されません。過去に自分で調整した旧式係数は上書きされるため、変更前に数値をご確認ください。</div></div>`;
 
     html += `<div class="twt-card"><h3>満月ボーナス <span class="twt-tag">確定仕様</span></h3>
-      <div class="note">お茶会での公式回答により、満月の勝利価値は <b>${MOON_BONUS_BP.toLocaleString()}BP</b>（迎撃勝利350回分）です。通常週・特殊効果週では実際の満月対象へこの値を直接加算し、総満月では加算しません。枷が成立している魔女では半減しますが、枷状態と救済判定の進行は本ツールでは自動追跡しません。</div></div>`;
+      <div class="note">お茶会での公式回答により、満月の勝利価値は <b>${MOON_BONUS_BP.toLocaleString()}BP</b>です。通常週・特殊効果週では実際の満月対象へこの値を直接加算し、総満月では加算しません。枷が成立している魔女では半減しますが、枷状態と救済判定の進行は本ツールでは自動追跡しません。</div></div>`;
 
     html += `<div class="twt-card"><h3>満月操作アイテムの使用回数 <span class="twt-tag est">推定</span></h3>
       <div class="note">特殊アイテムにより、表記上の満月と実際の効果対象を変えられることが確認されています。使用上限は非公開のため、確認できている範囲の推定値です。記録タブの「週の設定を訂正」で「特殊効果週」に設定した週の数を自動集計しています。</div>
@@ -4283,16 +4411,27 @@ ${common}`;
       await saveState(); toast('保存しました。');
     };
     $('#save-territory-btn').onclick = async ()=>{ WICCA.forEach(w=>{ state.config.territoryInit[w] = Number(document.querySelector(`[data-init-territory="${w}"]`).value)||0; }); await saveState(); toast('保存しました。'); render(); };
+    $('#bp-legacy-preset-btn').onclick = ()=>{
+      $('#bp-coeff-a').value = '8.056';
+      $('#bp-coeff-b1').value = '0.257';
+      $('#bp-coeff-b2').value = '2.678';
+      toast('旧式の詳細係数を入力しました。反映するには「保存」を押してください。');
+    };
     $('#save-bpcoeff-btn').onclick = async ()=>{
       const a = Number($('#bp-coeff-a').value);
       const b1 = Number($('#bp-coeff-b1').value);
       const b2 = Number($('#bp-coeff-b2').value);
-      if(Number.isNaN(a) || Number.isNaN(b1) || Number.isNaN(b2)){ toast('数値を入力してください。'); return; }
+      if([a,b1,b2].some(v=>!Number.isFinite(v) || v<0 || v>1000000) ||
+          [$('#bp-coeff-a'),$('#bp-coeff-b1'),$('#bp-coeff-b2')].some(el=>el.value.trim()==='')){
+        toast('係数には0以上の有限の数値を入力してください。'); return;
+      }
+      state.config.bpEstimateModel = $('#settings-bp-model').value;
       state.config.bpEstimateCoeffA = a;
       state.config.bpEstimateCoeffB1 = b1;
       state.config.bpEstimateCoeffB2 = b2;
       await saveState();
-      toast('保存しました。');
+      toast('BPモデルと旧式係数を保存しました。');
+      render();
     };
     const smtBtn = $('#save-special-moon-total-btn');
     if(smtBtn) smtBtn.onclick = async ()=>{
