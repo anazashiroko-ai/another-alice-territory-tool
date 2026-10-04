@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-ugC+xoNqdafUl+VkLVgCaJMxMMoSsX0MB/CCPR6R7bA='; script-src-attr 'none'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; child-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-SrDtBBUCmE8ui1HDknAcaxLZX8vTosiJYDQm6X3amo4='; script-src-attr 'none'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; child-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="color-scheme" content="dark">
 <title>領土戦 戦況分析</title>
 <style>
@@ -192,7 +192,7 @@ body{overflow-x:hidden;}
 <div id="twt-root">
   <div id="twt-header">
     <div>
-      <h1>領土戦 戦況分析 <span class="app-version">v0.7.1.6</span></h1>
+      <h1>領土戦 戦況分析 <span class="app-version">v0.7.1.7</span></h1>
       <button id="twt-helpbtn" type="button">基本操作説明（タップで開く）</button>
       <div class="sub" id="twt-week-sub">読み込み中…</div>
     </div>
@@ -325,13 +325,13 @@ body{overflow-x:hidden;}
 </div>
 
 <script>
-// Standalone migration build: v0.7.1.6 (selectable empirical BP experiments, verified benchmark)
+// Standalone migration build: v0.7.1.7 (reports for closed, unconfirmed weeks)
 (function(){
   const startupWarning = document.getElementById('twt-startup-warning');
   if(startupWarning) startupWarning.remove();
   const WICCA = ['東','西','南','北'];
   const REPORT_ORDER = ['南','北','東','西'];
-  const APP_VERSION = '0.7.1.6';
+  const APP_VERSION = '0.7.1.7';
   // 旧係数は保存された既存利用者の設定を維持する。新係数は比較試験用の固定値。
   const BP_MODELS = Object.freeze({legacy:'旧経験式', experimental:'新・試験モデル'});
   const BP_EXPERIMENTAL = Object.freeze({a:8.056, b1:2.559, b2:3.972});
@@ -1480,6 +1480,13 @@ body{overflow-x:hidden;}
     }
     return calc ? {ok:true, kind:'current'} : {ok:false, reason:'current_missing'};
   }
+  function reportAvailability(week){
+    // 締め後の未確定週はAI連携と同じ入力条件でレポートを継続する。
+    // 確定済み過去週は従来どおり保存済み実績による振り返りを使う。
+    const availability = analysisAvailability(week);
+    return availability.kind==='past_confirmed'
+      ? {ok:false, reason:'past_confirmed'} : availability;
+  }
   function historicalWeekRange(year, parsed){
     const pad = n=>String(n).padStart(2,'0');
     const resetDate = `${year}-${pad(parsed.month)}-${pad(parsed.day)}`; // 月曜0:00の締め境界
@@ -2611,6 +2618,49 @@ body{overflow-x:hidden;}
       withRegressionState(f.state, ()=>{
         regressionAssertEqual(analysisAvailability(getWeek(f.weekId)).kind, 'closed_snapshot', '締め後スナップショット分析');
         withRegressionSelection(f.weekId, ()=> regressionAssert(buildAnalysisDataContext().includes('週間戦果・推定順位'), '未確定でも差分分析を生成'));
+      });
+    });
+
+    add('RP1', 'レポート：月曜0:00の締め済み未確定週でもテンプレートを生成できる', ()=>{
+      const f = makeRankingRegressionFixture();
+      const week = f.state.weeks[0];
+      week.weekStart='2020-01-06'; week.weekEnd='2020-01-12';
+      f.state.snapshots.forEach(sn=>{ sn.capturedAt=sn.snapshotType==='WEEK_START' ? '2020-01-06T00:00:00+09:00' : '2020-01-13T00:00:00+09:00'; });
+      withRegressionState(f.state, ()=>{
+        regressionAssertEqual(reportAvailability(week).kind,'closed_snapshot','締め後レポート');
+        const calc=computeSuggestedRanking(f.weekId);
+        const text=buildReportText(week,calc,'最終報告の方針');
+        regressionAssert(text.includes('締め後・結果未確定（BP・順位は推定）'),'未確定を明示');
+        REPORT_ORDER.forEach(w=>regressionAssert(text.includes(`${w}(`),'4ウィッカを掲載'));
+        regressionAssert(text.includes('最終報告の方針'),'方針を反映');
+        regressionAssertEqual(f.state.weeklyResults.length,0,'確定結果を作らない');
+      });
+    });
+    add('RP2', 'レポート：締め済みでもREPORT不足なら生成しない', ()=>{
+      const f=makeRankingRegressionFixture();
+      const week=f.state.weeks[0]; week.weekStart='2020-01-06'; week.weekEnd='2020-01-12';
+      f.state.snapshots=f.state.snapshots.filter(sn=>!(sn.wicca==='南' && sn.snapshotType==='REPORT'));
+      withRegressionState(f.state,()=>{
+        regressionAssertEqual(reportAvailability(week).ok,false,'不足時は不可');
+        regressionAssertEqual(reportAvailability(week).reason,'past_unconfirmed','不足理由');
+      });
+    });
+    add('RP3', 'レポート：確定済み過去週と停止週の既存制限を維持する', ()=>{
+      const f=makePastConfirmedRegressionFixture();
+      withRegressionState(f.state,()=>{
+        regressionAssertEqual(reportAvailability(getWeek(f.weekId)).reason,'past_confirmed','確定済みは振り返り');
+      });
+      const stop=makeRankingRegressionFixture({weekStatus:'TERRITORY_SUSPENDED'});
+      withRegressionState(stop.state,()=>{
+        regressionAssertEqual(reportAvailability(getWeek(stop.weekId)).reason,'suspended','停止週');
+      });
+    });
+    add('RP4', 'レポート：締め前は従来の表示・文面を維持する', ()=>{
+      const f=makeRankingRegressionFixture();
+      const week=f.state.weeks[0]; week.weekStart='2099-01-05'; week.weekEnd='2099-01-11';
+      withRegressionState(f.state,()=>{
+        regressionAssertEqual(reportAvailability(week).kind,'current','締め前');
+        regressionAssert(!buildReportText(week,computeSuggestedRanking(f.weekId)).includes('締め後・結果未確定'),'締め前に未確定注記を付けない');
       });
     });
 
@@ -4028,7 +4078,8 @@ ${common}`;
       </div></div></div>`;
       return;
     }
-    if(isPastWeek(week)){
+    const availability = reportAvailability(week);
+    if(availability.reason==='past_confirmed' || availability.reason==='past_unconfirmed'){
       const confirmed = hasConfirmedFinalResultSet(week);
       body().innerHTML = `<div class="twt-analysis-page"><div class="twt-analysis-panel"><div class="twt-section">
         <div class="twt-section-head"><h3>過去週</h3>${confirmed?'<span class="twt-tag confirmed">確定済み</span>':''}</div>
@@ -4048,6 +4099,7 @@ ${common}`;
     let goalPriorityMetaDirty = false;
 
     let html = `<div class="twt-analysis-page"><div class="twt-analysis-panel">
+      ${availability.kind==='closed_snapshot' ? '<div class="twt-section"><span class="twt-tag est">締め後・結果未確定</span><div class="note">この週の週初・REPORT差分からレポートを生成します。BP・順位は推定であり、確定結果ではありません。目標・方針は対象週のものとして扱います。</div></div>' : ''}
       <div class="twt-section">
         <div class="twt-section-head"><h3>戦況テンプレート</h3></div>
         <div id="report-output">${escapeHtml(text)}</div>
@@ -4247,6 +4299,7 @@ ${common}`;
     const dateStr = fmtReportDate(capturedAt);
     let lines = [];
     lines.push(dateStr);
+    if(reportAvailability(week).kind==='closed_snapshot') lines.push('締め後・結果未確定（BP・順位は推定）');
     REPORT_ORDER.forEach(w=>{
       const p = territoryForWeekContext(w, week.weekId);
       const r = calc.byWicca[w];
