@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-3jfg+qKB33KadPMIdnNIbu14nkPeIt/Xk2VZVSbCA+8='; script-src-attr 'none'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; child-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-WwTTeKaaJ5AV1e9Ikmn5ZQfIbEFIx4wU6Bvx2awfbbI='; script-src-attr 'none'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; child-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="color-scheme" content="dark">
 <title>領土戦 戦況分析</title>
 <style>
@@ -192,7 +192,7 @@ body{overflow-x:hidden;}
 <div id="twt-root">
   <div id="twt-header">
     <div>
-      <h1>領土戦 戦況分析 <span class="app-version">v0.8.1</span></h1>
+      <h1>領土戦 戦況分析 <span class="app-version">v0.8.2</span></h1>
       <button id="twt-helpbtn" type="button">基本操作説明（タップで開く）</button>
       <div class="sub" id="twt-week-sub">読み込み中…</div>
     </div>
@@ -325,13 +325,13 @@ body{overflow-x:hidden;}
 </div>
 
 <script>
-// Standalone migration build: v0.8.1 (persistent observations, interval-floor BP experiments, frozen validation)
+// Standalone migration build: v0.8.2 (persistent observations, interval-floor BP experiments, frozen validation)
 (function(){
   const startupWarning = document.getElementById('twt-startup-warning');
   if(startupWarning) startupWarning.remove();
   const WICCA = ['東','西','南','北'];
   const REPORT_ORDER = ['南','北','東','西'];
-  const APP_VERSION = '0.8.1';
+  const APP_VERSION = '0.8.2';
   // 旧係数は保存された既存利用者の設定を維持する。新係数は比較試験用の固定値。
   const BP_MODELS = Object.freeze({legacy:'旧経験式（保存係数）', experimental:'累積型・試験モデル', history:'履歴型0床モデル（実験・区間近似）'});
   const BP_EXPERIMENTAL = Object.freeze({a:8.056, b1:2.559, b2:3.972});
@@ -406,7 +406,7 @@ body{overflow-x:hidden;}
       orderUncertainCount:intervals.filter(s=>s.orderUncertain).length,
       heavyMin:intervals.reduce((n,s)=>n+s.heavyMin,0),heavyMax:intervals.reduce((n,s)=>n+s.heavyMax,0),
       baselineLate:Date.parse(ws.capturedAt)!==startMs,
-      archivedCount:state.snapshots.filter(s=>s.weekId===weekId&&s.wicca===wicca&&s.snapshotType==='REPORT'&&!s.isActive).length};
+      archivedCount:state.snapshots.filter(s=>s.weekId===weekId&&s.wicca===wicca&&s.snapshotType==='REPORT'&&!s.isActive&&!s.isExcluded).length};
   }
   // 一括復帰は明示確認のみ。矛盾する候補のどちらが正しいかを自動選択しない。
   function planObservationRecovery(weekId){
@@ -414,7 +414,7 @@ body{overflow-x:hidden;}
     if(!week) return {rows,ids:[]};
     for(const w of WICCA){
       const ws=activeSnapshots(weekId,w,'WEEK_START')[0];
-      const all=state.snapshots.filter(s=>s.weekId===weekId&&s.wicca===w&&s.snapshotType==='REPORT');
+      const all=state.snapshots.filter(s=>s.weekId===weekId&&s.wicca===w&&s.snapshotType==='REPORT'&&!s.isExcluded);
       const groups=new Map();
       for(const sn of all){const t=Date.parse(sn.capturedAt);if(!groups.has(t)) groups.set(t,[]);groups.get(t).push(sn);}
       const candidates=[];
@@ -440,6 +440,18 @@ body{overflow-x:hidden;}
     rows.sort((a,b)=>Date.parse(a.capturedAt)-Date.parse(b.capturedAt)||WICCA.indexOf(a.wicca)-WICCA.indexOf(b.wicca));
     return {rows,ids:rows.filter(r=>!r.reason).map(r=>r.id)};
   }
+  function excludeObservation(id){
+    const sn=state.snapshots.find(s=>s.id===id);
+    if(!sn) throw new Error('観測が見つかりません');
+    const before=cloneJson(state);
+    try{
+      const oldValue=JSON.stringify({isActive:sn.isActive,isExcluded:!!sn.isExcluded});
+      sn.isActive=false;sn.isExcluded=true;
+      state.correctionLog.push({logId:uid(),targetTable:'snapshots',targetId:id,fieldName:'exclusion',oldValue,
+        newValue:JSON.stringify({isActive:false,isExcluded:true}),reason:'利用者が明示的に除外（計算・一括復帰・矛盾判定の対象外）',correctedAt:nowIso()});
+      validateStateData(state);
+    }catch(e){state=before;throw e;}
+  }
   function applyObservationRecovery(weekId,ids){
     const plan=planObservationRecovery(weekId);
     if(!ids.length||JSON.stringify(plan.ids)!==JSON.stringify(ids)) throw new Error('復帰候補が変わりました。再度確認してください');
@@ -459,7 +471,7 @@ body{overflow-x:hidden;}
   function observationRecoveryWarning(weekId){
     const counts=WICCA.map(w=>{
       const active=activeSnapshots(weekId,w,'REPORT');
-      const n=state.snapshots.filter(s=>s.weekId===weekId&&s.wicca===w&&s.snapshotType==='REPORT'&&!s.isActive&&!active.some(a=>Date.parse(a.capturedAt)===Date.parse(s.capturedAt))).length;
+      const n=state.snapshots.filter(s=>s.weekId===weekId&&s.wicca===w&&s.snapshotType==='REPORT'&&!s.isActive&&!s.isExcluded&&!active.some(a=>Date.parse(a.capturedAt)===Date.parse(s.capturedAt))).length;
       return n?`${w} ${n}件`:'';
     }).filter(Boolean);
     return counts.length?`⚠ 履歴未確認：別時刻の対象外REPORTが残っています（${counts.join('／')}）。途中の観測を含まないBP・順位の可能性があります。「記録」→「旧REPORTをまとめて確認・復帰」で確認してください。`:'';
@@ -830,6 +842,8 @@ body{overflow-x:hidden;}
       assertNumber(sn.draws ?? 0,`snapshots[${i}].draws`,0,1000000000000,true);
       assertOptionalNumber(sn.totalBattles,`snapshots[${i}].totalBattles`,0,1000000000000,true);
       assertBoolean(sn.isActive,`snapshots[${i}].isActive`);
+      if(sn.isExcluded!==undefined) assertBoolean(sn.isExcluded,`snapshots[${i}].isExcluded`);
+      if(sn.isExcluded&&sn.isActive) throw new Error('除外済みの観測を有効にはできません');
       if(sn.enteredAt!=null) assertTimestamp(sn.enteredAt,`snapshots[${i}].enteredAt`);
       if(sn.supersededBy!=null) assertSafeId(sn.supersededBy,`snapshots[${i}].supersededBy`);
       if(sn.carriedFrom!=null) assertSafeId(sn.carriedFrom,`snapshots[${i}].carriedFrom`);
@@ -1088,7 +1102,7 @@ body{overflow-x:hidden;}
     shared.snapshots = state.snapshots
       .filter(s=>s && weekIds.has(s.weekId))
       .map(s=>Object.assign(pickDefined(s, [
-        'id','weekId','wicca','snapshotType','capturedAt','totalBattles','wins','losses','draws','carriedFrom','supersededBy','isActive'
+        'id','weekId','wicca','snapshotType','capturedAt','totalBattles','wins','losses','draws','carriedFrom','supersededBy','isActive','isExcluded'
       ]), {}));
     shared.bpValidations=cloneJson((state.bpValidations||[]).filter(r=>weekIds.has(r.weekId)));
     shared.weeklyResults = state.weeklyResults
@@ -1189,7 +1203,7 @@ body{overflow-x:hidden;}
       .map(x=>[
         idToIndex.get(x.weekId), WICCA.indexOf(x.wicca), x.snapshotType==='REPORT'?1:0,
         x.capturedAt, x.totalBattles ?? null, x.wins ?? 0, x.losses ?? 0, x.draws ?? 0,
-        x.isActive===false ? 0 : 1, snapIndex.get(x.supersededBy) ?? null, snapIndex.get(x.carriedFrom) ?? null
+        x.isActive===false ? 0 : 1, snapIndex.get(x.supersededBy) ?? null, snapIndex.get(x.carriedFrom) ?? null, x.isExcluded ? 1 : 0
       ]);
     const r = st.weeklyResults
       .filter(x=>idToIndex.has(x.weekId))
@@ -1241,6 +1255,7 @@ body{overflow-x:hidden;}
       if(!Array.isArray(a)||!Number.isInteger(a[0])||!Number.isInteger(a[1])||![0,1].includes(a[2])) throw new Error('勝敗記録の形式が不正です');
       if(Number(compact.v)===2){
         if(![0,1].includes(a[8])) throw new Error('観測の有効状態が不正です');
+        if(a[11]!==undefined&&![0,1].includes(a[11])) throw new Error('観測の除外状態が不正です');
         for(const ref of [a[9],a[10]]) if(ref!=null&&(!Number.isInteger(ref)||ref<0||ref>=compact.s.length)) throw new Error('観測の訂正・引継ぎ参照が不正です');
       }
       const week = st.weeks[Number(a[0])];
@@ -1249,7 +1264,7 @@ body{overflow-x:hidden;}
       return {
         id:`shs${i}`, weekId:week.weekId, wicca:wc, snapshotType:Number(a[2])===1?'REPORT':'WEEK_START',
         capturedAt:a[3], totalBattles:a[4] ?? null, wins:Number(a[5] ?? 0), losses:Number(a[6] ?? 0), draws:Number(a[7] ?? 0),
-        isActive:Number(compact.v)===1 || a[8]!==0, supersededBy:a[9]==null ? null : `shs${a[9]}`,carriedFrom:a[10]==null ? null : `shs${a[10]}`
+        isExcluded:Number(compact.v)===2&&a[11]===1, isActive:Number(compact.v)===1 || a[8]!==0, supersededBy:a[9]==null ? null : `shs${a[9]}`,carriedFrom:a[10]==null ? null : `shs${a[10]}`
       };
     });
     if(compact.bv!=null && !Array.isArray(compact.bv)) throw new Error('BP検証記録が不正です');
@@ -1332,7 +1347,7 @@ body{overflow-x:hidden;}
       const output = $('#share-modal-output');
       output.value = built.code;
       const ratio = fullLength ? Math.round(built.code.length / fullLength * 100) : 0;
-      $('#share-modal-size').textContent = `共有コード：${built.code.length.toLocaleString()}字 / 完全データ ${fullLength.toLocaleString()}字の約${ratio}%（観測履歴・旧入力${omittedInactive}件・検証記録を含むv2。受取側もv0.8.0以上が必要。訂正ログは除外）`;
+      $('#share-modal-size').textContent = `共有コード：${built.code.length.toLocaleString()}字 / 完全データ ${fullLength.toLocaleString()}字の約${ratio}%（観測履歴・旧入力${omittedInactive}件・検証記録を含むv2。除外指定の維持には受取側もv0.8.2以上が必要。訂正ログは除外）`;
       return built.code;
     }catch(e){
       toast('共有コードの作成に失敗しました。サイズ上限の場合は完全バックアップをご利用ください。');
@@ -2456,6 +2471,50 @@ body{overflow-x:hidden;}
     const cases = [];
     const add = (id, name, fn)=> cases.push({id, name, fn});
 
+    add('HE1','無効な誤入力を直接除外し、正しい後続候補の復帰を妨げない',()=>{
+      const f=makeHistoryRegressionFixture();withRegressionState(f.state,()=>{
+        const first=state.snapshots.find(s=>s.id==='h-東-0'),second=state.snapshots.find(s=>s.id==='h-東-1');
+        first.isActive=false;second.isActive=false;first.wins=999999;
+        regressionAssertEqual(planObservationRecovery(f.weekId).ids.length,0,'誤入力が候補を妨げる');
+        excludeObservation(first.id);
+        regressionAssert(!first.isActive&&first.isExcluded,'無効から直接除外');
+        const plan=planObservationRecovery(f.weekId);
+        regressionAssertEqual(plan.ids.length,1,'正しい候補だけ復帰可能');
+        regressionAssertEqual(plan.ids[0],second.id,'後続候補');
+        applyObservationRecovery(f.weekId,plan.ids);
+        regressionAssertEqual(observationRecoveryWarning(f.weekId),'','意図的除外は警告対象外');
+      });
+    });
+    add('HE2','除外状態をJSON・共有に保持し、個別復帰は可能',()=>{
+      const f=makeHistoryRegressionFixture();withRegressionState(f.state,()=>{
+        const sn=state.snapshots.find(s=>s.id==='h-東-0');excludeObservation(sn.id);
+        regressionAssert(prepareStateCandidate(cloneJson(state)).snapshots.find(s=>s.id===sn.id).isExcluded,'JSON復元');
+        const shared=parseShareCode(buildShareCode(f.weekId).code).state;
+        regressionAssertEqual(shared.snapshots.filter(s=>s.isExcluded).length,1,'共有復元');
+        upsertObservation(f.weekId,'東','REPORT',sn.capturedAt,sn.wins,sn.losses,0,null,sn.id);
+        regressionAssertEqual(activeSnapshots(f.weekId,'東','REPORT').length,9,'個別復帰');
+        regressionAssert(replayBpHistory(f.weekId,'東').ok,'再生');
+      });
+    });
+    add('HE3','除外指定の型と有効状態の矛盾を拒否',()=>{
+      const f=makeHistoryRegressionFixture();
+      for(const value of [true,'true']){
+        const candidate=cloneJson(f.state);candidate.snapshots[0].isExcluded=value;
+        let rejected=false;try{prepareStateCandidate(candidate);}catch(e){rejected=true;}
+        regressionAssert(rejected,'不正除外状態拒否');
+      }
+    });
+    add('HE4','無効記録にも除外ボタンを表示、除外済みは明示表示',()=>{
+      const f=makeHistoryRegressionFixture();withRegressionState(f.state,()=>{
+        const sn=state.snapshots.find(s=>s.wicca===observationWicca&&s.snapshotType==='REPORT');sn.isActive=false;
+        regressionAssert(renderObservationHistory(f.weekId).includes(`data-obs-exclude="${sn.id}"`),'無効にもボタン');
+        excludeObservation(sn.id);
+        const html=renderObservationHistory(f.weekId);
+        regressionAssert(!html.includes(`data-obs-exclude="${sn.id}"`),'除外済みは重複操作しない');
+        regressionAssert(html.includes('除外済み（一括復帰対象外）'),'状態表示');
+        regressionAssert(html.includes(`data-obs-edit="${sn.id}"`),'個別復帰保持');
+      });
+    });
     add('HR1','一括復帰：旧版の途中無効REPORTを復帰し、東6174BPを再現',()=>{
       const f=makeHistoryRegressionFixture();
       withRegressionState(f.state,()=>{
@@ -3699,11 +3758,11 @@ body{overflow-x:hidden;}
     observationPage=Math.min(observationPage,Math.max(0,Math.ceil(list.length/60)-1));
     return `<details class="twt-disclosure" id="obs-history-details" ${observationHistoryOpen?'open':''}><summary>観測履歴・訂正（${active.length}件有効／${archived}件対象外）</summary>
       <div class="twt-detail-body"><div class="note">異なる時刻は独立した観測として保存します。同じ勝敗数でも時刻を保持します。同時刻の再入力は訂正です。週初と最新REPORTのみを上の表に表示し、履歴型は途中の有効REPORTも再生します。</div>
-      <div class="note">旧版で無効化された記録は、訂正と通常更新を区別できません。完全バックアップを保存し、内容を確認して必要な時点だけ復帰してください。旧版で上書きされた時刻は復元できません。1ページ60件、前後移動で全件を確認できます。</div>
+      <div class="note">「除外」は無効な記録にも使えます。除外済みは一括復帰・矛盾判定から外れ、必要なら「確認・復帰」で個別に戻せます。旧版で無効化された記録は、訂正と通常更新を区別できません。完全バックアップを保存し、内容を確認して必要な時点だけ復帰してください。旧版で上書きされた時刻は復元できません。1ページ60件、前後移動で全件を確認できます。</div>
       <button class="small" id="obs-recovery-preview">旧REPORTをまとめて確認・復帰（4ウィッカ）</button><div id="obs-recovery-preview-body"></div>
       <label class="twt-label" for="obs-wicca">表示するウィッカ</label><select id="obs-wicca">${WICCA.map(w=>`<option ${w===observationWicca?'selected':''}>${w}</option>`).join('')}</select>
       <div class="twt-row"><button class="small" id="obs-page-prev" ${observationPage===0?'disabled':''}>新しい記録へ</button><span>${observationPage+1}／${Math.max(1,Math.ceil(list.length/60))}ページ</span><button class="small" id="obs-page-next" ${(observationPage+1)*60>=list.length?'disabled':''}>古い記録へ</button></div>
-      <div style="overflow-x:auto"><table class="twt-table"><thead><tr><th>取得時刻</th><th>勝／敗</th><th>状態</th><th>操作</th></tr></thead><tbody>${list.slice(observationPage*60,(observationPage+1)*60).map(s=>`<tr><td>${escapeHtml(fmtTime(s.capturedAt))}<br>${s.snapshotType==='WEEK_START'?'週初':'REPORT'}</td><td class="num">${s.wins.toLocaleString()}／${s.losses.toLocaleString()}</td><td>${s.isActive?'有効':'無効・旧版・訂正（対象外）'}</td><td><button class="small" data-obs-edit="${escapeAttr(s.id)}">${s.isActive?'訂正':'確認・復帰'}</button>${s.isActive?`<button class="ghost small" data-obs-exclude="${escapeAttr(s.id)}">除外</button>`:''}</td></tr>`).join('')}</tbody></table></div>
+      <div style="overflow-x:auto"><table class="twt-table"><thead><tr><th>取得時刻</th><th>勝／敗</th><th>状態</th><th>操作</th></tr></thead><tbody>${list.slice(observationPage*60,(observationPage+1)*60).map(s=>`<tr><td>${escapeHtml(fmtTime(s.capturedAt))}<br>${s.snapshotType==='WEEK_START'?'週初':'REPORT'}</td><td class="num">${s.wins.toLocaleString()}／${s.losses.toLocaleString()}</td><td>${s.isExcluded?'除外済み（一括復帰対象外）':s.isActive?'有効':'無効・旧版・訂正（対象外）'}</td><td><button class="small" data-obs-edit="${escapeAttr(s.id)}">${s.isActive?'訂正':'確認・復帰'}</button>${!s.isExcluded?`<button class="ghost small" data-obs-exclude="${escapeAttr(s.id)}">除外</button>`:''}</td></tr>`).join('')}</tbody></table></div>
       <div id="obs-editor" style="display:none"><input id="obs-edit-id" type="hidden"><label class="twt-label">取得日時（日本時間）</label><input type="datetime-local" step="1" id="obs-edit-time">
       <div class="twt-row"><div><label class="twt-label">累積勝数</label><input type="number" min="0" step="1" id="obs-edit-wins"></div><div><label class="twt-label">累積敗数</label><input type="number" min="0" step="1" id="obs-edit-losses"></div></div>
       <button class="small" id="obs-edit-save">訂正・復帰を保存して再計算</button><div class="note">週内の累積値を入力します。過去の観測を訂正すると、それ以降を再計算します。既存の実測検証記録は更新しません。</div></div></div></details>`;
@@ -3751,10 +3810,13 @@ body{overflow-x:hidden;}
     };
     document.querySelectorAll('[data-obs-exclude]').forEach(b=>b.onclick=async()=>{
       const s=state.snapshots.find(x=>x.id===b.dataset.obsExclude);if(!s) return;
-      if(!window.confirm('この観測を計算対象から除外しますか？記録は残り、確認して復帰できます。週初を除外すると計算できなくなる場合があります。')) return;
-      s.isActive=false;
-      if(!await saveState()){s.isActive=true;toast('保存に失敗しました');return;}
-      render();
+      if(!window.confirm('この観測を除外しますか？計算・一括復帰・候補の矛盾判定から外します。記録は残り、個別に確認して復帰できます。週初の除外は計算に影響します。')) return;
+      const before=cloneJson(state);
+      try{
+        excludeObservation(s.id);
+        if(!await saveState())throw new Error('保存に失敗しました。除外を取り消しました');
+        observationHistoryOpen=true;render();toast('記録を除外しました。一括復帰候補を再確認できます');
+      }catch(e){state=before;toast(e.message);}
     });
   }
 
