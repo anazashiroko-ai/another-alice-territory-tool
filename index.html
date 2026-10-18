@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-SrDtBBUCmE8ui1HDknAcaxLZX8vTosiJYDQm6X3amo4='; script-src-attr 'none'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; child-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-OyQdminUsz5fU8GbEms/rtbVunKKf6vFivRF9w0kHtY='; script-src-attr 'none'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; child-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="color-scheme" content="dark">
 <title>領土戦 戦況分析</title>
 <style>
@@ -192,7 +192,7 @@ body{overflow-x:hidden;}
 <div id="twt-root">
   <div id="twt-header">
     <div>
-      <h1>領土戦 戦況分析 <span class="app-version">v0.7.1.7</span></h1>
+      <h1>領土戦 戦況分析 <span class="app-version">v0.8.0</span></h1>
       <button id="twt-helpbtn" type="button">基本操作説明（タップで開く）</button>
       <div class="sub" id="twt-week-sub">読み込み中…</div>
     </div>
@@ -325,24 +325,26 @@ body{overflow-x:hidden;}
 </div>
 
 <script>
-// Standalone migration build: v0.7.1.7 (reports for closed, unconfirmed weeks)
+// Standalone migration build: v0.8.0 (persistent observations, interval-floor BP experiments, frozen validation)
 (function(){
   const startupWarning = document.getElementById('twt-startup-warning');
   if(startupWarning) startupWarning.remove();
   const WICCA = ['東','西','南','北'];
   const REPORT_ORDER = ['南','北','東','西'];
-  const APP_VERSION = '0.7.1.7';
+  const APP_VERSION = '0.8.0';
   // 旧係数は保存された既存利用者の設定を維持する。新係数は比較試験用の固定値。
-  const BP_MODELS = Object.freeze({legacy:'旧経験式', experimental:'新・試験モデル'});
+  const BP_MODELS = Object.freeze({legacy:'旧経験式（保存係数）', experimental:'累積型・試験モデル', history:'履歴型0床モデル（実験・区間近似）'});
   const BP_EXPERIMENTAL = Object.freeze({a:8.056, b1:2.559, b2:3.972});
+  const BP_HISTORY = Object.freeze({a:8.056, b1:2.559, b2:10, version:'history-floor-interval-v1'});
   const BP_VALIDATION_20261003 = Object.freeze([
     {wicca:'東',wins:8247,losses:6855,actualBP:23858},
     {wicca:'西',wins:10097,losses:8007,actualBP:61150},
     {wicca:'南',wins:7676,losses:12173,actualBP:24337},
     {wicca:'北',wins:4975,losses:3969,actualBP:29327}
   ]);
-  function selectedBpModel(){ return state && state.config.bpEstimateModel === 'experimental' ? 'experimental' : 'legacy'; }
+  function selectedBpModel(){ return state && Object.hasOwn(BP_MODELS,state.config.bpEstimateModel) ? state.config.bpEstimateModel : 'legacy'; }
   function bpModelCoefficients(modelId){
+    if(modelId === 'history') return {a:BP_HISTORY.a,b1:BP_HISTORY.b1,b2:BP_HISTORY.b2};
     if(modelId === 'experimental') return {a:BP_EXPERIMENTAL.a,b1:BP_EXPERIMENTAL.b1,b2:BP_EXPERIMENTAL.b2};
     return {a:state.config.bpEstimateCoeffA,b1:state.config.bpEstimateCoeffB1,b2:state.config.bpEstimateCoeffB2};
   }
@@ -352,7 +354,154 @@ body{overflow-x:hidden;}
   }
   function bpModelOptionsHtml(current){
     return `<option value="legacy" ${current==='legacy'?'selected':''}>旧経験式（保存済み係数）</option>
-      <option value="experimental" ${current==='experimental'?'selected':''}>新・試験モデル（8.056 / 2.559 / 3.972）</option>`;
+      <option value="experimental" ${current==='experimental'?'selected':''}>累積型・試験モデル（8.056 / 2.559 / 3.972）</option>
+      <option value="history" ${current==='history'?'selected':''}>履歴型0床モデル（実験・区間近似）</option>`;
+  }
+  // 0床を戦闘ごとに適用する理想モデルは、観測間のイベント順序なしには一意に復元できない。
+  // 点推定は「区間末0床」。境界を跨ぎ得る区間の重敗北数は両極端の中点（近似）を使う。
+  // lower/upperはイベント床を含む安全側の包絡。両端の到達可能性・統計的信頼区間は主張しない。
+  function historyInterval(wins, losses, dw, dl, bp, lower=bp, upper=bp){
+    if([wins,losses,dw,dl,bp,lower,upper].some(n=>!Number.isFinite(n)||n<0)) throw new Error('履歴区間の数値が不正です');
+    const clamp=n=>Math.max(0,Math.min(dl,n));
+    // 敗北直前のW>=Lは通常。W=Lからの最初の1敗も通常である点に注意。
+    const heavyMin=dl-clamp(wins+dw-losses+1);
+    const heavyMax=dl-clamp(wins-losses+1);
+    const heavyEstimate=(heavyMin+heavyMax)/2;
+    const rawDelta=BP_HISTORY.a*dw-BP_HISTORY.b1*(dl-heavyEstimate)-BP_HISTORY.b2*heavyEstimate;
+    const maxPenalty=BP_HISTORY.b1*(dl-heavyMax)+BP_HISTORY.b2*heavyMax;
+    const minPenalty=BP_HISTORY.b1*(dl-heavyMin)+BP_HISTORY.b2*heavyMin;
+    return {dw,dl,heavyMin,heavyMax,heavyEstimate,normalEstimate:dl-heavyEstimate,
+      rawDelta,bp:Math.max(0,bp+rawDelta),delta:Math.max(0,bp+rawDelta)-bp,
+      lower:Math.max(0,lower+BP_HISTORY.a*dw-maxPenalty),
+      upper:Math.max(0,upper-minPenalty)+BP_HISTORY.a*dw,
+      floorApplied:bp+rawDelta<0,coefficientUncertain:heavyMin!==heavyMax,
+      orderUncertain:dw>0 && dl>0};
+  }
+  function replayBpHistory(weekId,wicca,asOf=null){
+    const week=getWeek(weekId);
+    if(!week || week.weekStatus==='TERRITORY_SUSPENDED') return {ok:false,error:'領土戦停止週または週なし'};
+    const ws=activeSnapshots(weekId,wicca,'WEEK_START')[0];
+    if(!ws) return {ok:false,error:'週初なし'};
+    const cutoff=asOf ? Date.parse(asOf) : Infinity;
+    const reports=activeSnapshots(weekId,wicca,'REPORT').filter(s=>Date.parse(s.capturedAt)<=cutoff).reverse();
+    if(!reports.length) return {ok:false,error:'REPORTなし'};
+    const startMs=Date.parse(week.weekStart+'T00:00:00');
+    const closeMs=Date.parse(weekCloseDate(week)+'T00:00:00');
+    if(Date.parse(ws.capturedAt)<startMs || Date.parse(ws.capturedAt)>closeMs) return {ok:false,error:'週初時刻が週の範囲外'};
+    let wins=0,losses=0,bp=0,lower=0,upper=0,lastMs=Date.parse(ws.capturedAt);
+    const intervals=[],basis=[historyBasisSnapshot(ws)];
+    for(const sn of reports){
+      const t=Date.parse(sn.capturedAt), w=sn.wins-ws.wins,l=sn.losses-ws.losses;
+      if(!Number.isFinite(t)||t<lastMs||t>closeMs) return {ok:false,error:'REPORTの時刻が週初〜締め境界の範囲外'};
+      if(t===lastMs && (w!==wins||l!==losses)) return {ok:false,error:'同時刻に異なる勝敗数があります'};
+      if(w<wins||l<losses) return {ok:false,error:'累積勝敗が途中で減少しています。観測履歴を訂正してください'};
+      const step=historyInterval(wins,losses,w-wins,l-losses,bp,lower,upper);
+      intervals.push({...step,capturedAt:sn.capturedAt,wins:w,losses:l});
+      basis.push(historyBasisSnapshot(sn));
+      wins=w;losses=l;bp=step.bp;lower=step.lower;upper=step.upper;lastMs=t;
+    }
+    return {ok:true,bp,lower,upper,intervals,basis,version:BP_HISTORY.version,
+      floorCount:intervals.filter(s=>s.floorApplied).length,
+      coefficientUncertainCount:intervals.filter(s=>s.coefficientUncertain).length,
+      orderUncertainCount:intervals.filter(s=>s.orderUncertain).length,
+      heavyMin:intervals.reduce((n,s)=>n+s.heavyMin,0),heavyMax:intervals.reduce((n,s)=>n+s.heavyMax,0),
+      baselineLate:Date.parse(ws.capturedAt)!==startMs,
+      archivedCount:state.snapshots.filter(s=>s.weekId===weekId&&s.wicca===wicca&&s.snapshotType==='REPORT'&&!s.isActive).length};
+  }
+  function historyBasisSnapshot(sn){
+    return {capturedAt:new Date(sn.capturedAt).toISOString(),wins:sn.wins,losses:sn.losses,snapshotType:sn.snapshotType};
+  }
+  // 異時刻REPORTは独立観測。同時刻の訂正、または週初の訂正だけを置換する。
+  function upsertObservation(weekId,wicca,type,capturedAt,wins,losses,draws=0,totalBattles=null,replaceId=null){
+    const week=getWeek(weekId);
+    if(!week || !WICCA.includes(wicca) || !['WEEK_START','REPORT'].includes(type)) throw new Error('観測の対象が不正です');
+    const ms=Date.parse(capturedAt),start=Date.parse(week.weekStart+'T00:00:00'),close=Date.parse(weekCloseDate(week)+'T00:00:00');
+    if(!Number.isFinite(ms)||ms<start||ms>close) throw new Error('取得日時は対象週の月曜0:00〜翌月曜0:00にしてください');
+    [wins,losses,draws].forEach(n=>assertNumber(n,'勝敗数',0,1e12,true));
+    const replaced=replaceId ? state.snapshots.find(s=>s.id===replaceId&&s.weekId===weekId&&s.wicca===wicca&&s.snapshotType===type) : null;
+    if(replaceId&&!replaced) throw new Error('訂正元の観測がありません');
+    const existing=activeSnapshots(weekId,wicca,type).find(s=>type==='WEEK_START'||Date.parse(s.capturedAt)===ms);
+    if(existing&&existing.id!==replaceId&&replaceId) throw new Error('移動先の時刻に別の有効観測があります。先に内容を確認してください');
+    const ws=type==='WEEK_START' ? {wins,losses,capturedAt} : activeSnapshots(weekId,wicca,'WEEK_START')[0];
+    const series=activeSnapshots(weekId,wicca,'REPORT').filter(s=>s.id!==existing?.id&&s.id!==replaced?.id);
+    if(type==='REPORT') series.push({wins,losses,capturedAt});
+    series.sort((a,b)=>Date.parse(a.capturedAt)-Date.parse(b.capturedAt));
+    let prev=ws;
+    for(const sn of series){
+      if(prev&&(Date.parse(sn.capturedAt)<Date.parse(prev.capturedAt)||sn.wins<prev.wins||sn.losses<prev.losses||
+        (Date.parse(sn.capturedAt)===Date.parse(prev.capturedAt)&&(sn.wins!==prev.wins||sn.losses!==prev.losses)))){
+        throw new Error('前後の観測と時刻・累積勝敗が矛盾します。該当時点を訂正してください');
+      }
+      prev=sn;
+    }
+    const old=existing||replaced;
+    if(old&&old.isActive&&Date.parse(old.capturedAt)===ms&&old.wins===wins&&old.losses===losses&&old.draws===draws&&old.totalBattles===totalBattles) return old;
+    if(state.snapshots.length>=SECURITY_LIMITS.snapshots) throw new Error('観測数の保存上限です。完全バックアップを保存してください');
+    const sn={id:uid(),weekId,wicca,snapshotType:type,capturedAt:new Date(ms).toISOString(),wins,losses,draws,totalBattles,enteredAt:nowIso(),isActive:true,supersededBy:null};
+    if(old){
+      old.isActive=false;old.supersededBy=sn.id;
+      state.correctionLog.push({logId:uid(),targetTable:'snapshots',targetId:old.id,fieldName:'observation',
+        oldValue:JSON.stringify(historyBasisSnapshot(old)),newValue:JSON.stringify(historyBasisSnapshot(sn)),reason:'観測の訂正・旧版記録の復帰',correctedAt:nowIso()});
+    }
+    state.snapshots.push(sn);
+    return sn;
+  }
+  function historyModelDescription(calc=null){
+    let text='履歴型0床モデル（実験・history-floor-interval-v1）：a=8.056、b1=2.559、b2=10固定。週初BP=0から観測を時系列再生し、区間ごとに max(0, 前回BP+ΔBP)。敗北直前W<Lの敗北を重敗北と仮定。通常/重敗北数が不明な区間は最小〜最大重敗北数の中点を近似に使う。戦闘ごとの0床の厳密再現ではない。範囲は順序不明に対する安全側の包絡で、信頼区間や到達可能両端ではない。観測を増やすと近似値も変わる。';
+    if(calc) text+='\n'+REPORT_ORDER.map(w=>{
+      const r=calc.byWicca[w],h=r.history;
+      return h ? `${w}: ${h.intervals.length}区間 / 0床${h.floorCount}区間 / 重敗北${h.heavyMin}〜${h.heavyMax}件 / 順序不明${h.orderUncertainCount}区間 / 安全側範囲${Math.floor(h.lower)}〜${Math.ceil(h.upper)}BP${h.baselineLate?' / 週初取得が月曜0:00と不一致':''}${h.archivedCount?` / 計算対象外の旧・訂正記録${h.archivedCount}件あり`:''}` : '';
+    }).join('\n');
+    return text;
+  }
+  // 入力の変更検出用。暗号学的な署名・改ざん証明には使用しない。
+  function historyBasisKey(basis){
+    const text=JSON.stringify(basis);let n=2166136261;
+    for(let i=0;i<text.length;i++) n=Math.imul(n^text.charCodeAt(i),16777619)>>>0;
+    return n.toString(16).padStart(8,'0');
+  }
+  function validateBpValidations(s){
+    const entries=s.bpValidations===undefined ? [] : s.bpValidations;
+    assertArray(entries,'BP実測検証',1000);
+    const ids=new Set();
+    entries.forEach(v=>{
+      assertPlainObject(v,'BP検証');assertSafeId(v.validationId,'検証ID');
+      if(ids.has(v.validationId)) throw new Error('BP検証IDが重複しています');ids.add(v.validationId);
+      assertSafeId(v.weekId,'検証週');
+      if(!Array.isArray(s.weeks)||!s.weeks.some(w=>w.weekId===v.weekId)) throw new Error('BP検証の週参照が不正です');
+      assertEnum(v.wicca,WICCA,'検証ウィッカ');assertTimestamp(v.capturedAt,'検証時刻');assertTimestamp(v.createdAt,'検証保存日時');
+      assertNumber(v.actualBP,'実測BP',0,1e12,false);assertString(v.appVersion,'検証アプリ版',32);
+      assertString(v.basisKey,'検証入力キー',8);if(!/^[0-9a-f]{8}$/.test(v.basisKey)) throw new Error('検証入力キーが不正です');
+      assertPlainObject(v.predictions,'固定予測');
+      for(const id of Object.keys(BP_MODELS)){
+        const p=v.predictions[id];assertPlainObject(p,'モデル予測');
+        ['bp','error'].forEach(k=>assertNumber(p[k],k,-1e18,1e18,false));
+        ['a','b1','b2'].forEach(k=>assertNumber(p[k],k,0,1e6,false));
+        assertString(p.modelVersion,'モデル版',60);
+        if(id==='history'){
+          ['lower','upper'].forEach(k=>assertNumber(p[k],k,0,1e18,false));
+          if(p.lower>p.upper) throw new Error('予測範囲が不正です');
+          assertNumber(p.intervals,'観測区間数',0,SECURITY_LIMITS.snapshots,true);
+        }
+      }
+    });
+  }
+  function captureBpValidation(weekId,wicca,capturedAt,actualBP){
+    assertNumber(actualBP,'実測BP',0,1e12,false);
+    const h=replayBpHistory(weekId,wicca,capturedAt);
+    if(!h.ok) throw new Error(`${wicca}：${h.error}`);
+    if(Date.parse(h.intervals.at(-1).capturedAt)!==Date.parse(capturedAt)) throw new Error(`${wicca}：実測と同時刻のREPORTを先に入力してください（補間はしません）`);
+    if((state.bpValidations||[]).some(v=>v.weekId===weekId&&v.wicca===wicca&&Date.parse(v.capturedAt)===Date.parse(capturedAt))) throw new Error(`${wicca}：この時刻の検証は保存済みです。上書きしません`);
+    if((state.bpValidations||[]).length>=1000) throw new Error('BP検証記録の保存上限です');
+    const end=h.intervals.at(-1),predictions={};
+    for(const id of Object.keys(BP_MODELS)){
+      const c=bpModelCoefficients(id),bp=id==='history'?h.bp:predictBattlePoint(end.wins,end.losses,c);
+      predictions[id]={...c,bp,error:bp-actualBP,modelVersion:id==='history'?BP_HISTORY.version:'cumulative-v1'};
+      if(id==='history') Object.assign(predictions[id],{lower:h.lower,upper:h.upper,intervals:h.intervals.length});
+    }
+    const v={validationId:uid(),weekId,wicca,capturedAt:new Date(capturedAt).toISOString(),actualBP,createdAt:nowIso(),appVersion:APP_VERSION,basisKey:historyBasisKey(h.basis),predictions};
+    (state.bpValidations||(state.bpValidations=[])).push(v);
+    return v;
   }
   const BACKUP_FILE_FORMAT = 'another-alice-territory-tool-backup';
   const BACKUP_FILE_VERSION = 1;
@@ -440,6 +589,8 @@ body{overflow-x:hidden;}
         bpEstimateCoeffB2: 2.68,
         bpEstimateModel: 'legacy'
       },
+      snapshotSchemaVersion: 2,
+      bpValidations: [],
       weeks: [],
       snapshots: [],
       correctionLog: [],
@@ -566,6 +717,8 @@ body{overflow-x:hidden;}
   function validateStateData(s){
     assertPlainObject(s,'state');
     assertPlainObject(s.config,'config');
+    if(s.snapshotSchemaVersion!==undefined && s.snapshotSchemaVersion!==2) throw new Error('未対応の観測形式です');
+    validateBpValidations(s);
     const c=s.config;
     if(c.myWicca!=null) assertEnum(c.myWicca,WICCA,'config.myWicca');
     if(c.moonCycle!=null){ assertArray(c.moonCycle,'config.moonCycle',8); c.moonCycle.forEach((v,i)=>assertEnum(v,WICCA,`config.moonCycle[${i}]`)); }
@@ -696,6 +849,8 @@ body{overflow-x:hidden;}
       if(sn.isActive===undefined) sn.isActive=true;
       if(sn.draws===undefined) sn.draws=0;
     });
+    if(candidate.bpValidations==null) candidate.bpValidations=[];
+    if(candidate.snapshotSchemaVersion===undefined) candidate.snapshotSchemaVersion=2;
     validateStateData(candidate);
     return candidate;
   }
@@ -730,7 +885,7 @@ body{overflow-x:hidden;}
   const GZIP_PREFIX = 'TWTGZ1:';
   const SHARE_PREFIX = 'TWTSH1:';
   const SHARE_FORMAT = 'another-alice-territory-tool-share';
-  const SHARE_FORMAT_VERSION = 1;
+  const SHARE_FORMAT_VERSION = 2; // v1を読み込み可。v2は履歴・検証記録を保持し、旧アプリの誤読を防ぐ。
 
   // 戦況共有コードは content:// 等でも使えるよう CompressionStream に依存しない。
   // UTF-8バイト列をLZW圧縮し、可変長整数→Base64へ変換する。
@@ -856,13 +1011,10 @@ body{overflow-x:hidden;}
   }
 
   // 「同じ戦況計算・同じAI相談を再現できること」を優先した共有用state。
-  // 完全バックアップと違い、訂正ログ・無効化済みsnapshot・確定済み週のsnapshot・過去週の方針は省く。
+  // v2は確定週も含む全snapshotと固定済み検証記録を保持。訂正ログ・過去週の方針は省く。
   function buildShareState(focusWeekId){
     const focusId = focusWeekId || selectedWeekId || (weeksSorted().slice(-1)[0] || {}).weekId || null;
     const weekIds = new Set(state.weeks.map(w=>w.weekId));
-    const resultCounts = {};
-    state.weeklyResults.forEach(r=>{ if(weekIds.has(r.weekId)) resultCounts[r.weekId] = (resultCounts[r.weekId] || 0) + 1; });
-    const completedWeekIds = new Set(Object.keys(resultCounts).filter(id=>resultCounts[id]===4));
 
     const shared = defaultState();
     shared.config = pickDefined(state.config, [
@@ -874,10 +1026,11 @@ body{overflow-x:hidden;}
       'isEvent','isBackfilled','nextMoonOverride'
     ]));
     shared.snapshots = state.snapshots
-      .filter(s=>s && s.isActive===true && weekIds.has(s.weekId) && !completedWeekIds.has(s.weekId))
+      .filter(s=>s && weekIds.has(s.weekId))
       .map(s=>Object.assign(pickDefined(s, [
-        'id','weekId','wicca','snapshotType','capturedAt','totalBattles','wins','losses','draws','carriedFrom'
-      ]), {isActive:true}));
+        'id','weekId','wicca','snapshotType','capturedAt','totalBattles','wins','losses','draws','carriedFrom','supersededBy','isActive'
+      ]), {}));
+    shared.bpValidations=cloneJson((state.bpValidations||[]).filter(r=>weekIds.has(r.weekId)));
     shared.weeklyResults = state.weeklyResults
       .filter(r=>r && weekIds.has(r.weekId))
       .map(r=>pickDefined(r, [
@@ -959,7 +1112,7 @@ body{overflow-x:hidden;}
       st.config.bpEstimateCoeffA ?? 8.06,
       st.config.bpEstimateCoeffB1 ?? 0.26,
       st.config.bpEstimateCoeffB2 ?? 2.68,
-      st.config.bpEstimateModel === 'experimental' ? 1 : 0
+      st.config.bpEstimateModel === 'history' ? 2 : st.config.bpEstimateModel === 'experimental' ? 1 : 0
     ];
     const w = weeks.map(week=>[
       week.weekStart,
@@ -970,11 +1123,13 @@ body{overflow-x:hidden;}
       week.isBackfilled ? 1 : 0,
       week.nextMoonOverride ?? null
     ]);
+    const snapIndex=new Map(st.snapshots.map((s,i)=>[s.id,i]));
     const sn = st.snapshots
       .filter(x=>idToIndex.has(x.weekId))
       .map(x=>[
         idToIndex.get(x.weekId), WICCA.indexOf(x.wicca), x.snapshotType==='REPORT'?1:0,
-        x.capturedAt, x.totalBattles ?? null, x.wins ?? 0, x.losses ?? 0, x.draws ?? 0
+        x.capturedAt, x.totalBattles ?? null, x.wins ?? 0, x.losses ?? 0, x.draws ?? 0,
+        x.isActive===false ? 0 : 1, snapIndex.get(x.supersededBy) ?? null, snapIndex.get(x.carriedFrom) ?? null
       ]);
     const r = st.weeklyResults
       .filter(x=>idToIndex.has(x.weekId))
@@ -984,10 +1139,11 @@ body{overflow-x:hidden;}
         x.teaHostFinal ? 1 : 0, x.teaHostUnknown ? 1 : 0, x.isBackfilled ? 1 : 0, x.isSuspendedResult ? 1 : 0
       ]);
     const focusPolicy = payload.focusWeekId && st.weeklyPolicy ? st.weeklyPolicy[payload.focusWeekId] : null;
-    return {v:SHARE_FORMAT_VERSION, f:focusIndex, c, w, s:sn, r, p:policyToCompact(focusPolicy)};
+    return {v:SHARE_FORMAT_VERSION, f:focusIndex, c, w, s:sn, r, p:policyToCompact(focusPolicy),
+      bv:(st.bpValidations||[]).map(x=>({...x,weekId:idToIndex.get(x.weekId)}))};
   }
   function compactToSharePayload(compact){
-    if(!compact || Number(compact.v)!==SHARE_FORMAT_VERSION || !Array.isArray(compact.c) || !Array.isArray(compact.w) || !Array.isArray(compact.s) || !Array.isArray(compact.r)){
+    if(!compact || ![1,SHARE_FORMAT_VERSION].includes(Number(compact.v)) || !Array.isArray(compact.c) || !Array.isArray(compact.w) || !Array.isArray(compact.s) || !Array.isArray(compact.r)){
       throw new Error('共有コード形式が不正です');
     }
     const st = defaultState();
@@ -1005,7 +1161,8 @@ body{overflow-x:hidden;}
     st.config.bpEstimateCoeffA = Number(c[5] ?? 8.06);
     st.config.bpEstimateCoeffB1 = Number(c[6] ?? 0.26);
     st.config.bpEstimateCoeffB2 = Number(c[7] ?? 2.68);
-    st.config.bpEstimateModel = c[8]===1 ? 'experimental' : 'legacy';
+    if(c[8]!=null && ![0,1,2].includes(c[8])) throw new Error('BPモデル指定が不正です');
+    st.config.bpEstimateModel = c[8]===2 ? 'history' : c[8]===1 ? 'experimental' : 'legacy';
     const statuses = ['NORMAL','TOTAL_FULL_MOON','TERRITORY_SUSPENDED','SPECIAL_MOON_ITEM'];
     st.weeks = compact.w.map((a,i)=>{
       if(!Array.isArray(a) || !a[0]) throw new Error('週データが不正です');
@@ -1021,14 +1178,24 @@ body{overflow-x:hidden;}
       return week;
     });
     st.snapshots = compact.s.map((a,i)=>{
+      if(!Array.isArray(a)||!Number.isInteger(a[0])||!Number.isInteger(a[1])||![0,1].includes(a[2])) throw new Error('勝敗記録の形式が不正です');
+      if(Number(compact.v)===2){
+        if(![0,1].includes(a[8])) throw new Error('観測の有効状態が不正です');
+        for(const ref of [a[9],a[10]]) if(ref!=null&&(!Number.isInteger(ref)||ref<0||ref>=compact.s.length)) throw new Error('観測の訂正・引継ぎ参照が不正です');
+      }
       const week = st.weeks[Number(a[0])];
       const wc = WICCA[Number(a[1])];
       if(!week || !wc) throw new Error('勝敗記録の参照先が不正です');
       return {
         id:`shs${i}`, weekId:week.weekId, wicca:wc, snapshotType:Number(a[2])===1?'REPORT':'WEEK_START',
         capturedAt:a[3], totalBattles:a[4] ?? null, wins:Number(a[5] ?? 0), losses:Number(a[6] ?? 0), draws:Number(a[7] ?? 0),
-        isActive:true, supersededBy:null
+        isActive:Number(compact.v)===1 || a[8]!==0, supersededBy:a[9]==null ? null : `shs${a[9]}`,carriedFrom:a[10]==null ? null : `shs${a[10]}`
       };
+    });
+    if(compact.bv!=null && !Array.isArray(compact.bv)) throw new Error('BP検証記録が不正です');
+    st.bpValidations=(compact.bv||[]).map(x=>{
+      const week=st.weeks[x.weekId];if(!week) throw new Error('BP検証記録の週が不正です');
+      return {...x,weekId:week.weekId};
     });
     st.weeklyResults = compact.r.map(a=>{
       const week = st.weeks[Number(a[0])];
@@ -1060,7 +1227,9 @@ body{overflow-x:hidden;}
     const payload = buildSharePayload(focusWeekId);
     const compact = sharePayloadToCompact(payload);
     const json = JSON.stringify(compact);
+    if(json.length>SECURITY_LIMITS.shareDecodedChars) throw new Error('共有データの展開後サイズが上限を超えます');
     const code = SHARE_PREFIX + lzwCompressUtf8ToBase64(json);
+    if(code.length>SECURITY_LIMITS.shareCodeChars) throw new Error('履歴を含む共有コードが上限を超えました。完全バックアップをご利用ください');
     return {code, json, payload, compact};
   }
   function parseShareCode(code){
@@ -1103,10 +1272,10 @@ body{overflow-x:hidden;}
       const output = $('#share-modal-output');
       output.value = built.code;
       const ratio = fullLength ? Math.round(built.code.length / fullLength * 100) : 0;
-      $('#share-modal-size').textContent = `共有コード：${built.code.length.toLocaleString()}字 / 完全データ ${fullLength.toLocaleString()}字の約${ratio}%（訂正履歴${state.correctionLog.length}件・無効な旧入力${omittedInactive}件などを除外）`;
+      $('#share-modal-size').textContent = `共有コード：${built.code.length.toLocaleString()}字 / 完全データ ${fullLength.toLocaleString()}字の約${ratio}%（観測履歴・旧入力${omittedInactive}件・検証記録を含むv2。受取側もv0.8.0以上が必要。訂正ログは除外）`;
       return built.code;
     }catch(e){
-      toast('共有コードの作成に失敗しました。');
+      toast('共有コードの作成に失敗しました。サイズ上限の場合は完全バックアップをご利用ください。');
       return null;
     }
   }
@@ -1294,7 +1463,7 @@ body{overflow-x:hidden;}
   function getWeek(id){ return state.weeks.find(w=>w.weekId===id); }
   function activeSnapshots(weekId, wicca, type){
     return state.snapshots.filter(s=>s.weekId===weekId && s.wicca===wicca && s.snapshotType===type && s.isActive)
-      .sort((a,b)=> b.capturedAt.localeCompare(a.capturedAt));
+      .sort((a,b)=> Date.parse(b.capturedAt)-Date.parse(a.capturedAt) || b.id.localeCompare(a.id));
   }
   function latestConfirmedTerritory(wicca, beforeWeekStart){
     const results = state.weeklyResults
@@ -1451,6 +1620,7 @@ body{overflow-x:hidden;}
     state.weeks = state.weeks.filter(w=>w.weekId!==weekId);
     state.snapshots = state.snapshots.filter(s=>s.weekId!==weekId);
     state.weeklyResults = state.weeklyResults.filter(r=>r.weekId!==weekId);
+    state.bpValidations=(state.bpValidations||[]).filter(r=>r.weekId!==weekId);
     if(state.weeklyPolicy) delete state.weeklyPolicy[weekId];
 
     // 次週に引き継いだsnapshot自体は残すが、削除済みsnapshotへの参照だけ外す。
@@ -1651,9 +1821,13 @@ body{overflow-x:hidden;}
     const coefficients = bpModelCoefficients(modelId);
     const coeffA = coefficients.a, coeffB1 = coefficients.b1, coeffB2 = coefficients.b2;
     rows.forEach(r=>{
-      r.predictedBP = predictBattlePoint(r.weekWins,r.weekLosses,coefficients);
+      if(modelId==='history'){
+        r.history=replayBpHistory(weekId,r.wicca);
+        r.predictedBP=r.history.ok ? r.history.bp : null;
+      } else r.predictedBP = predictBattlePoint(r.weekWins,r.weekLosses,coefficients);
       r.lossWinRatio = r.weekWins>0 ? r.weekLosses/r.weekWins : (r.weekLosses>0 ? Infinity : 0);
     });
+    if(rows.some(r=>r.predictedBP===null)) return null;
     const rankMetric = r => r.predictedBP;
     const sorted = [...rows].sort((a,b)=> rankMetric(b) - rankMetric(a) || b.netGain - a.netGain);
     sorted.forEach((r,i)=> r.rankSuggested = i+1);
@@ -2200,10 +2374,242 @@ body{overflow-x:hidden;}
     return {state:s, weekId:currentId, priorId};
   }
 
+  const BP_HISTORY_EAST_20261017 = Object.freeze([
+    ['2026-10-12T04:11:00+09:00',325,7555],['2026-10-12T19:53:00+09:00',542,19365],
+    ['2026-10-13T17:43:00+09:00',1428,39400],['2026-10-13T22:58:00+09:00',1678,47694],
+    ['2026-10-14T21:32:00+09:00',3779,53455],['2026-10-15T19:01:00+09:00',4741,54250],
+    ['2026-10-16T18:54:00+09:00',6065,55238],['2026-10-17T16:13:00+09:00',7962,56024],
+    ['2026-10-17T22:40:00+09:00',8165,56391]
+  ]);
+  function makeHistoryRegressionFixture(){
+    const s=defaultState(),weekId='reg-history';
+    s.config.bpEstimateModel='history';
+    s.weeks=[{weekId,weekStart:'2026-10-12',weekEnd:'2026-10-18',moonTarget:'南',weekStatus:'NORMAL'}];
+    WICCA.forEach(w=>{
+      s.snapshots.push({id:'h-start-'+w,weekId,wicca:w,snapshotType:'WEEK_START',capturedAt:'2026-10-12T00:00:00+09:00',wins:100000,losses:100000,draws:0,isActive:true});
+      BP_HISTORY_EAST_20261017.forEach(([t,win,loss],i)=>s.snapshots.push({id:`h-${w}-${i}`,weekId,wicca:w,snapshotType:'REPORT',capturedAt:t,wins:100000+win,losses:100000+loss,draws:0,isActive:true}));
+    });
+    return {state:s,weekId};
+  }
   function runRegressionTests(options){
     const opts = Object.assign({log:false}, options || {});
     const cases = [];
     const add = (id, name, fn)=> cases.push({id, name, fn});
+
+    add('HF1','履歴型：各区間で0床を適用し、負債を持ち越さない',()=>{
+      const loss=historyInterval(0,100,0,20,100);
+      regressionAssertEqual(loss.bp,0,'負BPを残さない');
+      regressionAssert(loss.floorApplied,'0床区間');
+      regressionAssertApprox(historyInterval(0,120,100,0,loss.bp).bp,805.6,1e-8,'0到達後の勝利');
+    });
+    add('HF2','履歴型：重敗北の既決係数を後の勝利で再分類しない',()=>{
+      const a=historyInterval(0,5,0,2,100);
+      regressionAssertEqual(a.heavyMin,2,'全敗北が重い');
+      regressionAssertEqual(a.bp,80,'重敗北減点');
+      regressionAssertApprox(historyInterval(0,7,10,0,a.bp).bp,160.56,1e-8,'勝利超過に戻っても過去減点は固定');
+    });
+    add('HF3','履歴型：10/17東の区間近似6173.744BPを再現',()=>{
+      const f=makeHistoryRegressionFixture();
+      withRegressionState(f.state,()=>{
+        const h=replayBpHistory(f.weekId,'東');
+        regressionAssert(h.ok,'再生成功');regressionAssertApprox(h.bp,6173.744,1e-6,'東・区間末0床近似');
+        h.intervals.slice(1).forEach(s=>{regressionAssertEqual(s.heavyMin,s.dl,'重敗北最小');regressionAssertEqual(s.heavyMax,s.dl,'重敗北最大');});
+        regressionAssert(h.lower<=6659&&h.upper>=6659,'実測は安全側包絡内（独立検証ではない）');
+      });
+    });
+    add('HF4','履歴型：小規模全順列で敗北直前判定の件数範囲・BP包絡を検証',()=>{
+      for(let w=0;w<=3;w++)for(let l=0;l<=3;l++)for(let dw=0;dw<=4;dw++)for(let dl=0;dl<=4;dl++){
+        const step=historyInterval(w,l,dw,dl,7),actual=[];
+        const visit=(cw,cl,rw,rl,bp,heavy)=>{
+          if(!rw&&!rl){actual.push({bp,heavy});return;}
+          if(rw) visit(cw+1,cl,rw-1,rl,bp+BP_HISTORY.a,heavy);
+          if(rl){const h=cw<cl;visit(cw,cl+1,rw,rl-1,Math.max(0,bp-(h?BP_HISTORY.b2:BP_HISTORY.b1)),heavy+(h?1:0));}
+        };
+        visit(w,l,dw,dl,7,0);
+        regressionAssertEqual(step.heavyMin,Math.min(...actual.map(x=>x.heavy)),'重敗北下限');
+        regressionAssertEqual(step.heavyMax,Math.max(...actual.map(x=>x.heavy)),'重敗北上限');
+        actual.forEach(x=>regressionAssert(x.bp>=step.lower-1e-8&&x.bp<=step.upper+1e-8,'全イベント順列を包絡'));
+      }
+    });
+    add('HF5','履歴型：全重敗北でも区間末0は確定しない',()=>{
+      const s=historyInterval(0,100,1,100,0);
+      regressionAssertEqual(s.heavyMin,100,'全敗北は重い');
+      regressionAssertEqual(s.bp,0,'区間近似は0');
+      regressionAssertApprox(s.upper,8.056,1e-8,'敗北後の1勝は残り得る');
+    });
+    add('HF6','履歴型：複数観測区間でもイベント逐次0床の結果を包絡する',()=>{
+      let seed=7291;const next=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed;};
+      for(let trace=0;trace<100;trace++){
+        let w=0,l=0,actual=0,point=0,lower=0,upper=0;
+        for(let interval=0;interval<20;interval++){
+          const sw=w,sl=l;
+          for(let event=0;event<10;event++){
+            if(next()%3===0){actual+=BP_HISTORY.a;w++;}
+            else{actual=Math.max(0,actual-(w<l?BP_HISTORY.b2:BP_HISTORY.b1));l++;}
+          }
+          const s=historyInterval(sw,sl,w-sw,l-sl,point,lower,upper);
+          regressionAssert(actual>=s.lower-1e-8&&actual<=s.upper+1e-8,'時系列包絡');
+          point=s.bp;lower=s.lower;upper=s.upper;
+        }
+      }
+    });
+    add('HS1','観測：異時刻・同値REPORTと過去挿入を全て保存し、最新値を選ぶ',()=>{
+      const f=makeHistoryRegressionFixture();
+      withRegressionState(f.state,()=>{
+        const n=activeSnapshots(f.weekId,'東','REPORT').length;
+        upsertObservation(f.weekId,'東','REPORT','2026-10-18T00:00:00+09:00',108165,156391);
+        upsertObservation(f.weekId,'東','REPORT','2026-10-12T12:00:00+09:00',100400,110000);
+        regressionAssertEqual(activeSnapshots(f.weekId,'東','REPORT').length,n+2,'2観測追加');
+        regressionAssertEqual(activeSnapshots(f.weekId,'東','REPORT')[0].capturedAt,'2026-10-17T15:00:00.000Z','時刻順の最新');
+        regressionAssert(replayBpHistory(f.weekId,'東').ok,'過去挿入後再生');
+      });
+    });
+    add('HS2','観測：同時刻の訂正だけを置換し、以後のBPを再計算',()=>{
+      const f=makeHistoryRegressionFixture();
+      withRegressionState(f.state,()=>{
+        const before=replayBpHistory(f.weekId,'東').bp,n=activeSnapshots(f.weekId,'東','REPORT').length;
+        upsertObservation(f.weekId,'東','REPORT','2026-10-16T18:54:00+09:00',105900,155238);
+        regressionAssertEqual(activeSnapshots(f.weekId,'東','REPORT').length,n,'有効観測数維持');
+        regressionAssertEqual(state.snapshots.filter(s=>s.wicca==='東'&&!s.isActive).length,1,'訂正元を保持');
+        regressionAssert(replayBpHistory(f.weekId,'東').bp!==before,'後続再計算で予測が変化');
+      });
+    });
+    add('HS3','観測：矛盾する過去挿入・週外時刻・負値を拒否して記録を維持',()=>{
+      const f=makeHistoryRegressionFixture();
+      withRegressionState(f.state,()=>{
+        for(const [time,w,l] of [['2026-10-13T12:00:00+09:00',100100,120000],['2026-10-19T00:00:01+09:00',110000,160000],['2026-10-18T00:00:00+09:00',-1,160000]]){
+          const before=JSON.stringify(state);let rejected=false;
+          try{upsertObservation(f.weekId,'東','REPORT',time,w,l);}catch(e){rejected=true;}
+          regressionAssert(rejected,'不正入力拒否');regressionAssertEqual(JSON.stringify(state),before,'非破壊');
+        }
+      });
+    });
+    add('HS4','観測：旧バックアップの係数・無効記録を変えず、旧記録は明示復帰できる',()=>{
+      const f=makeHistoryRegressionFixture();f.state.config.bpEstimateModel='legacy';
+      delete f.state.snapshotSchemaVersion;delete f.state.bpValidations;
+      const old=f.state.snapshots.find(s=>s.id==='h-東-0');old.isActive=false;
+      withRegressionState(prepareStateCandidate(f.state),()=>{
+        regressionAssertEqual(state.config.bpEstimateCoeffB1,0.26,'保存済み旧係数');
+        regressionAssertEqual(state.snapshots.find(s=>s.id===old.id).isActive,false,'自動復帰しない');
+        upsertObservation(f.weekId,'東','REPORT',old.capturedAt,old.wins,old.losses,0,null,old.id);
+        regressionAssertEqual(activeSnapshots(f.weekId,'東','REPORT').length,9,'確認後に復帰');
+      });
+    });
+    add('HV1','BP検証：3モデルの係数・誤差を固定保存し、再入力・係数変更で上書きしない',()=>{
+      const f=makeHistoryRegressionFixture();
+      withRegressionState(f.state,()=>{
+        const v=captureBpValidation(f.weekId,'東','2026-10-17T22:40:00+09:00',6659),frozen=JSON.stringify(v);
+        regressionAssertApprox(v.predictions.history.error,-485.256,1e-6,'保存誤差');
+        state.config.bpEstimateCoeffA=99;
+        upsertObservation(f.weekId,'東','REPORT','2026-10-16T18:54:00+09:00',105900,155238);
+        regressionAssertEqual(JSON.stringify(v),frozen,'入力訂正後も固定');
+        let rejected=false;try{captureBpValidation(f.weekId,'東',v.capturedAt,7000);}catch(e){rejected=true;}
+        regressionAssert(rejected,'同時刻検証の上書き拒否');
+        regressionAssert(historyBasisKey(replayBpHistory(f.weekId,'東',v.capturedAt).basis)!==v.basisKey,'観測変更を検出');
+      });
+    });
+    add('HV2','BP検証：実測と同時刻のREPORTなしでは保存しない',()=>{
+      const f=makeHistoryRegressionFixture();
+      withRegressionState(f.state,()=>{
+        let rejected=false;try{captureBpValidation(f.weekId,'東','2026-10-17T23:00:00+09:00',6659);}catch(e){rejected=true;}
+        regressionAssert(rejected,'補間禁止');regressionAssertEqual(state.bpValidations.length,0,'保存なし');
+      });
+    });
+    add('HV3','履歴共有v2：全時点・検証記録・新モデルを往復し、同じ予測・分析を再現',()=>{
+      const f=makeHistoryRegressionFixture();
+      withRegressionState(f.state,()=>withRegressionSelection(f.weekId,()=>{
+        captureBpValidation(f.weekId,'東','2026-10-17T22:40:00+09:00',6659);
+        const before=buildAnalysisDataContext(),payload=parseShareCode(buildShareCode(f.weekId).code);
+        regressionAssertEqual(payload.state.config.bpEstimateModel,'history','履歴型選択');
+        regressionAssertEqual(payload.state.snapshots.length,40,'全観測を共有');
+        regressionAssertEqual(payload.state.bpValidations.length,1,'実測検証を共有');
+        withRegressionState(payload.state,()=>withRegressionSelection(payload.focusWeekId,()=>{
+          regressionAssertEqual(buildAnalysisDataContext(),before,'分析文を同一再現');
+          regressionAssertApprox(replayBpHistory(payload.focusWeekId,'東').bp,6173.744,1e-6,'共有後のBP');
+        }));
+        const restored=parseBackupJsonText(JSON.stringify(buildBackupFileObject()));
+        regressionAssertEqual(JSON.stringify(restored.bpValidations),JSON.stringify(state.bpValidations),'JSONバックアップで検証記録保持');
+      }));
+    });
+    add('HV4','履歴共有：v1コードの旧モデル既定と新モデル指定の入力検証',()=>{
+      const f=makeShareRegressionFixture();
+      withRegressionState(f.state,()=>{
+        const compact=buildShareCode(f.weekId).compact;compact.v=1;compact.c=compact.c.slice(0,8);delete compact.bv;
+        compact.s=compact.s.filter(a=>a[8]!==0).map(a=>a.slice(0,8));
+        const payload=parseShareCode(SHARE_PREFIX+lzwCompressUtf8ToBase64(JSON.stringify(compact)));
+        regressionAssertEqual(payload.state.config.bpEstimateModel,'legacy','v1は旧式');
+        compact.c[8]=99;let rejected=false;
+        try{parseShareCode(SHARE_PREFIX+lzwCompressUtf8ToBase64(JSON.stringify(compact)));}catch(e){rejected=true;}
+        regressionAssert(rejected,'未知モデルを拒否');
+      });
+    });
+    add('HM1','履歴型：通常・特殊・総満月でも戦闘BPは共通、満月加算だけ分離',()=>{
+      const f=makeHistoryRegressionFixture();
+      withRegressionState(f.state,()=>{
+        const week=getWeek(f.weekId);
+        for(const status of ['NORMAL','SPECIAL_MOON_ITEM','TOTAL_FULL_MOON']){
+          week.weekStatus=status;week.actualMoonTarget='北';
+          const calc=computeSuggestedRanking(f.weekId);
+          regressionAssertApprox(calc.byWicca['東'].predictedBP,6173.744,1e-6,'基本BP維持');
+          regressionAssertEqual(calc.moonBonusApplicable,status!=='TOTAL_FULL_MOON','満月分離');
+          if(status==='SPECIAL_MOON_ITEM')regressionAssertEqual(calc.byWicca['北'].rankWithMoon,1,'実効満月対象');
+        }
+        week.weekStatus='TERRITORY_SUSPENDED';regressionAssertEqual(replayBpHistory(f.weekId,'東').ok,false,'停止週は再生しない');
+      });
+    });
+    add('HM2','履歴型：次週へは締め累積値だけ引き継ぎ、前週BPは持ち越さない',()=>{
+      const f=makeHistoryRegressionFixture();
+      withRegressionState(f.state,()=>{
+        WICCA.forEach(w=>upsertObservation(f.weekId,w,'REPORT','2026-10-19T00:00:00+09:00',108165,156391));
+        const result=carryForwardReportToNextWeekStart(f.weekId,{moonTarget:'北',weekStatus:'NORMAL'});
+        WICCA.forEach(w=>{const ws=activeSnapshots(result.nextWeek.weekId,w,'WEEK_START')[0];upsertObservation(result.nextWeek.weekId,w,'REPORT','2026-10-19T01:00:00+09:00',ws.wins+100,ws.losses);});
+        regressionAssertApprox(replayBpHistory(result.nextWeek.weekId,'東').bp,805.6,1e-8,'次週は0から加点');
+      });
+    });
+    add('HS5','履歴型：有効な同時刻矛盾・カウンタ減少を黙って補完しない',()=>{
+      const f=makeHistoryRegressionFixture();
+      withRegressionState(f.state,()=>{
+        const source=state.snapshots.find(s=>s.id==='h-東-1');
+        state.snapshots.push({...source,id:'bad-duplicate',wins:source.wins+1});
+        regressionAssertEqual(replayBpHistory(f.weekId,'東').ok,false,'同時刻矛盾');
+        state.snapshots.pop();source.wins=100001;
+        regressionAssertEqual(replayBpHistory(f.weekId,'東').ok,false,'累積値減少');
+      });
+    });
+    add('HS6','履歴共有v2：確定した週も観測と訂正元を省略しない',()=>{
+      const f=makeHistoryRegressionFixture();
+      withRegressionState(f.state,()=>{
+        upsertObservation(f.weekId,'東','REPORT','2026-10-16T18:54:00+09:00',105900,155238);
+        WICCA.forEach((w,i)=>state.weeklyResults.push({weekId:f.weekId,wicca:w,weekWins:8165,weekLosses:56391,rankFinal:i+1,rankFinalSource:'manual',territoryTotal:10,territoryDelta:RANK_DELTA[i+1],teaHostFinal:i<2}));
+        const payload=parseShareCode(buildShareCode(f.weekId).code);
+        regressionAssertEqual(payload.state.snapshots.length,41,'確定後も全観測を保持');
+        regressionAssertEqual(payload.state.snapshots.filter(s=>!s.isActive).length,1,'訂正元も非有効として保持');
+        const ids=new Set(payload.state.snapshots.map(s=>s.id));
+        payload.state.snapshots.forEach(s=>{if(s.supersededBy)regressionAssert(ids.has(s.supersededBy),'訂正先参照を再構成');});
+      });
+    });
+    add('HV5','BP検証：不正な実測値・モデル係数・構造を拒否してstateを維持',()=>{
+      const f=makeHistoryRegressionFixture();
+      withRegressionState(f.state,()=>{
+        captureBpValidation(f.weekId,'東','2026-10-17T22:40:00+09:00',6659);
+        const before=state;
+        for(const change of [s=>s.bpValidations=false,s=>s.bpValidations[0].actualBP=-1,s=>s.bpValidations[0].wicca='<img>',s=>s.bpValidations[0].predictions.history.b2=Infinity]){
+          const s=cloneJson(state);change(s);let rejected=false;
+          try{mergeIntoState(s);}catch(e){rejected=true;}
+          regressionAssert(rejected,'不正検証を拒否');regressionAssertEqual(state,before,'state保持');
+        }
+      });
+    });
+    add('HS7','履歴共有v2：不正な有効フラグ・訂正先参照を拒否',()=>{
+      const f=makeHistoryRegressionFixture();
+      withRegressionState(f.state,()=>{
+        for(const mutate of [c=>c.s[0][8]='有効',c=>c.s[0][9]=999999]){
+          const c=buildShareCode(f.weekId).compact;mutate(c);let rejected=false;
+          try{parseShareCode(SHARE_PREFIX+lzwCompressUtf8ToBase64(JSON.stringify(c)));}catch(e){rejected=true;}
+          regressionAssert(rejected,'履歴フラグ・参照検証');
+        }
+      });
+    });
 
     add('R1', '通常週：北満月込み順位が 北1・東2・南3・西4 になる', ()=>{
       const f = makeRankingRegressionFixture();
@@ -2265,7 +2671,7 @@ body{overflow-x:hidden;}
     add('BM4', 'BP新旧比較：満月ボーナスは素BPに含まず、既存の対象だけ順位へ反映', ()=>{
       const f=makeRankingRegressionFixture({weekStatus:'SPECIAL_MOON_ITEM',moonTarget:'北',actualMoonTarget:'西'});
       withRegressionState(f.state,()=>{
-        for(const id of Object.keys(BP_MODELS)){
+        for(const id of ['legacy','experimental']){
           const r=computeSuggestedRanking(f.weekId,id);
           regressionAssertEqual(r.moonTargetEff,'西','特殊満月対象');
           regressionAssertEqual(r.moonBonusApplicable,true,'満月適用');
@@ -2707,14 +3113,14 @@ body{overflow-x:hidden;}
       regressionAssertEqual(parsed.weeks[0].weekId, f.weekId, 'legacy JSON読み込み');
     });
 
-    add('SH1', '戦況共有：訂正履歴・無効入力・過去週方針を除外し、分析に必要な情報を残す', ()=>{
+    add('SH1', '戦況共有v2：全観測と固定検証を保持し、訂正ログ・過去週方針を除外する', ()=>{
       const f = makeShareRegressionFixture();
       withRegressionState(f.state, ()=> withRegressionSelection(f.weekId, ()=>{
         const built = buildShareState(f.weekId);
         regressionAssertEqual(built.focusWeekId, f.weekId, '共有対象週');
         regressionAssertEqual(built.state.correctionLog.length, 0, '訂正履歴は共有しない');
-        regressionAssert(built.state.snapshots.every(s=>s.isActive===true), '無効snapshotを含めない');
-        regressionAssert(!built.state.snapshots.some(s=>s.id==='reg-share-old'), '旧入力を除外');
+        regressionAssertEqual(built.state.snapshots.length, f.state.snapshots.length, '全観測を保持');
+        regressionAssert(built.state.snapshots.some(s=>s.id==='reg-share-old'&&!s.isActive), '旧入力は非有効のまま保持');
         regressionAssert(!!built.state.weeklyPolicy[f.weekId], '対象週方針を保持');
         regressionAssertEqual(built.state.weeklyPolicy[f.priorId], undefined, '過去週方針は共有しない');
         regressionAssertEqual(built.state.weeklyResults.length, 4, '確定履歴を保持');
@@ -3017,7 +3423,7 @@ body{overflow-x:hidden;}
     </div>`;
     html += renderSnapshotSection('WEEK_START', '① 週初（月曜0:00）の入力', week.weekStart+'T00:00', 'var(--ok)');
     html += renderSnapshotSection('REPORT', '② 報告時点（現在）の入力', nowLocalInputValue(), 'var(--warn)');
-    html += `<div class="twt-card"><h3>現在の有効データ（この週）</h3>${renderSnapshotTable(selectedWeekId)}</div>`;
+    html += `<div class="twt-card"><h3>現在の有効データ（この週）</h3>${renderSnapshotTable(selectedWeekId)}${renderObservationHistory(selectedWeekId)}</div>`;
     html += renderMondayTemplate(selectedWeekId);
     html += renderWeeklyDiffPreview(selectedWeekId);
     body().innerHTML = html;
@@ -3090,7 +3496,7 @@ body{overflow-x:hidden;}
       <div id="parse-preview-${type}" style="margin-top:10px;"></div>
       <div class="note">1ウィッカずつ貼り付けても構いません。「解析する」を押すたび、検出できたウィッカだけ更新されます（他のウィッカの入力済み内容は保持されます）。</div>`;
     if(type==='REPORT'){
-      html += `<div class="note" style="margin-top:8px;">この週の最終報告には、締め境界である次の月曜0:00の値を使用できます。その値は同時に次週の週初値です。</div>`;
+      html += `<div class="note" style="margin-top:8px;">異なる取得日時のREPORTは履歴として追加保存します。同時刻の入力は訂正になります。この週の最終報告には、締め境界である次の月曜0:00の値を使用できます。その値は同時に次週の週初値です。</div>`;
       if(already) html += renderCarryForwardBlock();
     }
     if(type==='WEEK_START') html += renderPreviousCloseImportBlock();
@@ -3154,7 +3560,58 @@ body{overflow-x:hidden;}
     return `<table class="twt-table"><thead><tr><th>ウィッカ</th><th>勝</th><th>敗</th><th>取得時刻</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
+  let observationWicca='南',observationPage=0,observationHistoryOpen=false;
+  function renderObservationHistory(weekId){
+    const list=state.snapshots.filter(s=>s.weekId===weekId&&s.wicca===observationWicca)
+      .sort((a,b)=>Date.parse(b.capturedAt)-Date.parse(a.capturedAt));
+    const active=list.filter(s=>s.isActive),archived=list.length-active.length;
+    observationPage=Math.min(observationPage,Math.max(0,Math.ceil(list.length/60)-1));
+    return `<details class="twt-disclosure" id="obs-history-details" ${observationHistoryOpen?'open':''}><summary>観測履歴・訂正（${active.length}件有効／${archived}件対象外）</summary>
+      <div class="twt-detail-body"><div class="note">異なる時刻は独立した観測として保存します。同じ勝敗数でも時刻を保持します。同時刻の再入力は訂正です。週初と最新REPORTのみを上の表に表示し、履歴型は途中の有効REPORTも再生します。</div>
+      <div class="note">旧版で無効化された記録は、訂正と通常更新を区別できません。完全バックアップを保存し、内容を確認して必要な時点だけ復帰してください。旧版で上書きされた時刻は復元できません。1ページ60件、前後移動で全件を確認できます。</div>
+      <label class="twt-label" for="obs-wicca">表示するウィッカ</label><select id="obs-wicca">${WICCA.map(w=>`<option ${w===observationWicca?'selected':''}>${w}</option>`).join('')}</select>
+      <div class="twt-row"><button class="small" id="obs-page-prev" ${observationPage===0?'disabled':''}>新しい記録へ</button><span>${observationPage+1}／${Math.max(1,Math.ceil(list.length/60))}ページ</span><button class="small" id="obs-page-next" ${(observationPage+1)*60>=list.length?'disabled':''}>古い記録へ</button></div>
+      <div style="overflow-x:auto"><table class="twt-table"><thead><tr><th>取得時刻</th><th>勝／敗</th><th>状態</th><th>操作</th></tr></thead><tbody>${list.slice(observationPage*60,(observationPage+1)*60).map(s=>`<tr><td>${escapeHtml(fmtTime(s.capturedAt))}<br>${s.snapshotType==='WEEK_START'?'週初':'REPORT'}</td><td class="num">${s.wins.toLocaleString()}／${s.losses.toLocaleString()}</td><td>${s.isActive?'有効':'無効・旧版・訂正（対象外）'}</td><td><button class="small" data-obs-edit="${escapeAttr(s.id)}">${s.isActive?'訂正':'確認・復帰'}</button>${s.isActive?`<button class="ghost small" data-obs-exclude="${escapeAttr(s.id)}">除外</button>`:''}</td></tr>`).join('')}</tbody></table></div>
+      <div id="obs-editor" style="display:none"><input id="obs-edit-id" type="hidden"><label class="twt-label">取得日時（日本時間）</label><input type="datetime-local" step="1" id="obs-edit-time">
+      <div class="twt-row"><div><label class="twt-label">累積勝数</label><input type="number" min="0" step="1" id="obs-edit-wins"></div><div><label class="twt-label">累積敗数</label><input type="number" min="0" step="1" id="obs-edit-losses"></div></div>
+      <button class="small" id="obs-edit-save">訂正・復帰を保存して再計算</button><div class="note">週内の累積値を入力します。過去の観測を訂正すると、それ以降を再計算します。既存の実測検証記録は更新しません。</div></div></div></details>`;
+  }
+  function bindObservationHistory(){
+    const details=$('#obs-history-details');if(details) details.ontoggle=()=>{observationHistoryOpen=details.open;};
+    const prev=$('#obs-page-prev'),next=$('#obs-page-next');
+    if(prev) prev.onclick=()=>{observationPage--;observationHistoryOpen=true;render();};
+    if(next) next.onclick=()=>{observationPage++;observationHistoryOpen=true;render();};
+    const select=$('#obs-wicca');
+    if(select) select.onchange=()=>{observationWicca=select.value;observationPage=0;observationHistoryOpen=true;render();};
+    document.querySelectorAll('[data-obs-edit]').forEach(b=>b.onclick=()=>{
+      const s=state.snapshots.find(x=>x.id===b.dataset.obsEdit);if(!s) return;
+      $('#obs-edit-id').value=s.id;
+      $('#obs-edit-time').value=new Date(Date.parse(s.capturedAt)-new Date(s.capturedAt).getTimezoneOffset()*60000).toISOString().slice(0,19);
+      $('#obs-edit-wins').value=s.wins;$('#obs-edit-losses').value=s.losses;$('#obs-editor').style.display='block';
+    });
+    const save=$('#obs-edit-save');
+    if(save) save.onclick=async()=>{
+      const s=state.snapshots.find(x=>x.id===$('#obs-edit-id').value);if(!s) return;
+      const before=cloneJson(state);
+      try{
+        if(!$('#obs-edit-time').value||!$('#obs-edit-wins').value||!$('#obs-edit-losses').value) throw new Error('日時・勝敗を入力してください');
+        upsertObservation(s.weekId,s.wicca,s.snapshotType,new Date($('#obs-edit-time').value).toISOString(),Number($('#obs-edit-wins').value),Number($('#obs-edit-losses').value),s.draws||0,s.totalBattles??null,s.id);
+        validateStateData(state);
+        if(!await saveState()) throw new Error('保存に失敗しました。元のデータを保持します');
+        render();toast('観測を保存し、履歴を再計算しました。');
+      }catch(e){state=before;toast(e.message);}
+    };
+    document.querySelectorAll('[data-obs-exclude]').forEach(b=>b.onclick=async()=>{
+      const s=state.snapshots.find(x=>x.id===b.dataset.obsExclude);if(!s) return;
+      if(!window.confirm('この観測を計算対象から除外しますか？記録は残り、確認して復帰できます。週初を除外すると計算できなくなる場合があります。')) return;
+      s.isActive=false;
+      if(!await saveState()){s.isActive=true;toast('保存に失敗しました');return;}
+      render();
+    });
+  }
+
   function bindRecordEvents(){
+    bindObservationHistory();
     const sel = $('#rc-week-select');
     if(sel) sel.onchange = e => { selectedWeekId = e.target.value || null; parseDrafts = { WEEK_START: null, REPORT: null }; render(); };
     const tg = $('#rc-new-week-toggle');
@@ -3360,39 +3817,23 @@ body{overflow-x:hidden;}
     if(!timeInput){ toast('取得日時を入力してください。'); return; }
     const capturedAt = new Date(timeInput).toISOString();
     let anyMissing = false, savedCount = 0;
-    for(const w of WICCA){
-      const winsInput = document.querySelector(`[data-pv-wins="${type}-${w}"]`);
-      const lossesInput = document.querySelector(`[data-pv-losses="${type}-${w}"]`);
-      if(!winsInput.value || !lossesInput.value){ anyMissing = true; continue; }
-      const wins = Number(winsInput.value);
-      const losses = Number(lossesInput.value);
-      const draws = (draft.values[w] && draft.values[w].draws) || 0;
-      const total = (draft.values[w] && draft.values[w].total) || null;
-      const existing = activeSnapshots(selectedWeekId, w, type)[0];
-      if(existing){
-        const changed = existing.wins!==wins || existing.losses!==losses;
-        if(changed){
-          const newSnap = { id:uid(), weekId:selectedWeekId, wicca:w, snapshotType:type, capturedAt,
-            totalBattles: total, wins, losses, draws, enteredAt:nowIso(), isActive:true, supersededBy:null };
-          existing.isActive = false; existing.supersededBy = newSnap.id;
-          state.snapshots.push(newSnap);
-          ['wins','losses'].forEach(f=>{
-            if(existing[f] !== newSnap[f]){
-              state.correctionLog.push({ logId: uid(), targetTable:'snapshots', targetId: existing.id,
-                fieldName:f, oldValue:String(existing[f]), newValue:String(newSnap[f]), reason:'一括貼り付けによる更新', correctedAt: nowIso() });
-            }
-          });
-        } else { existing.capturedAt = capturedAt; }
-      } else {
-        state.snapshots.push({ id:uid(), weekId:selectedWeekId, wicca:w, snapshotType:type, capturedAt,
-          totalBattles: total, wins, losses, draws, enteredAt:nowIso(), isActive:true, supersededBy:null });
+    const before=state;
+    state=cloneJson(state);
+    try{
+      for(const w of WICCA){
+        const wi=document.querySelector(`[data-pv-wins="${type}-${w}"]`);
+        const li=document.querySelector(`[data-pv-losses="${type}-${w}"]`);
+        if(!wi.value||!li.value){anyMissing=true;continue;}
+        const v=draft.values[w]||{};
+        upsertObservation(selectedWeekId,w,type,capturedAt,Number(wi.value),Number(li.value),v.draws||0,v.total||null);
+        savedCount++;
       }
-      savedCount++;
-    }
+      validateStateData(state);
+    }catch(e){ state=before;toast(e.message);return; }
+    if(!await saveState()){state=before;toast('保存に失敗しました。入力前のデータを保持しています。');return;}
     if(anyMissing) toast(`${savedCount}ウィッカ分を保存しました。未入力のウィッカが残っています。`);
     else toast('4ウィッカ分すべて保存しました。');
     parseDrafts[type] = null;
-    await saveState();
     render();
   }
 
@@ -3412,7 +3853,7 @@ body{overflow-x:hidden;}
     if(!calc){
       body().innerHTML = `<div class="twt-analysis-page"><div class="twt-analysis-panel">
         <div class="twt-section"><div class="twt-section-head"><h3>戦況</h3></div>
-        <div class="empty">週初・報告のスナップショットが4ウィッカ分揃っていません。「記録」タブで入力してください。</div>
+        <div class="empty">週初・報告データの不足、または履歴の矛盾により計算できません。「記録」タブで確認してください。${selectedBpModel()==='history'?renderHistoryDiagnostics(selectedWeekId):''}</div>
         <details class="twt-disclosure"><summary>今週の満月情報</summary>${renderMoonCompass(week)}</details>
         </div></div></div>`;
       return;
@@ -3473,6 +3914,7 @@ body{overflow-x:hidden;}
       ${renderMoonCompass(week)}
       ${renderBpEstimateCard(calc)}
       ${renderBpCompareCard(selectedWeekId)}
+      ${renderBpValidationPanel(selectedWeekId)}
       <div class="note">スナップショット内訳</div>`;
     calc.rows.forEach(r=>{
       html += `<div class="twt-mini-note"><span class="dot ${r.wicca}"></span>${r.wicca}：報告 ${r.rpSnap.wins.toLocaleString()}勝/${r.rpSnap.losses.toLocaleString()}敗（${fmtTime(r.rpSnap.capturedAt)}） − 週初 ${r.wsSnap.wins.toLocaleString()}勝/${r.wsSnap.losses.toLocaleString()}敗（${fmtTime(r.wsSnap.capturedAt)}）${r.zoneNote?` ／ ${r.zoneNote}`:''}</div>`;
@@ -3521,6 +3963,7 @@ body{overflow-x:hidden;}
     html += `</div></div></div>`;
 
     body().innerHTML = html;
+    bindBpValidationEvents();
     const modelSwitch = $('#status-bp-model');
     if(modelSwitch) modelSwitch.onchange = async ()=>{
       state.config.bpEstimateModel = modelSwitch.value;
@@ -3548,6 +3991,7 @@ body{overflow-x:hidden;}
   }
 
   function renderBpEstimateCard(calc){
+    if(calc.modelId==='history') return `<div class="twt-card"><h3>履歴型0床モデル <span class="twt-tag est">実験・区間近似</span></h3><div class="note">満月を除く戦闘BPの点推定です。区間内の発生順序は不明で、通常／重敗北の区別ができても0床の発生順序は確定しません。次の範囲は安全側の包絡であり信頼区間ではありません。推定順位は点推定に基づきます。</div>${renderHistoryDiagnostics(calc.week.weekId)}</div>`;
     let html = `<div class="twt-card">
       <h3>BP自動予測 <span class="twt-tag est">${BP_MODELS[calc.modelId]}・推定</span></h3>
       <div class="note">週間勝数・敗数に a=${calc.coeffA}、b1=${calc.coeffB1}、b2=${calc.coeffB2} を適用した${BP_MODELS[calc.modelId]}の非公式推定BPです。満月ボーナスは含まず、順位も推定です。新モデルは2026/10/3の限定的な観測を受けた試験式で、特に東の誤差が大きく、公式式ではありません。</div>
@@ -3575,7 +4019,7 @@ body{overflow-x:hidden;}
       const rank = r => r.rankWithMoon ?? r.rankSuggested;
       html += `<tr><td>${w}</td><td class="num">${Math.round(a.predictedBP).toLocaleString()}</td><td class="num">${Math.round(b.predictedBP).toLocaleString()}</td><td class="num">${rank(a)}</td><td class="num">${rank(b)}</td></tr>`;
     }
-    html += `</tbody></table></div>
+    html += `</tbody></table></div>${renderHistoryDiagnostics(weekId)}
       <div class="note">別週の検証標本（2026/10/3 23:17頃）。以下は当時の週間勝敗を直接式に代入した参考値で、現在週の戦況・満月ボーナスとは無関係です。差は「予測−実測」です。旧式には設定タブで保存中の係数を使用します。</div>
       <div style="overflow-x:auto;"><table class="twt-table"><thead><tr><th>ウィッカ</th><th>実測BP</th><th>旧予測／差</th><th>新予測／差</th></tr></thead><tbody>`;
     const oldCoeff=bpModelCoefficients('legacy'), trialCoeff=bpModelCoefficients('experimental');
@@ -3589,6 +4033,47 @@ body{overflow-x:hidden;}
       <div class="note">東の大きな過大予測は未解決です。南は係数推定の調整対象で独立検証ではありません。敗戦時点の重減点仮説は、この累積値式では厳密には表現できません。</div>
       </div></details>`;
     return html;
+  }
+
+  function renderHistoryDiagnostics(weekId){
+    const histories=REPORT_ORDER.map(w=>[w,replayBpHistory(weekId,w)]);
+    return `<details class="twt-disclosure"><summary>履歴型の内訳・発生順序不明</summary><div class="twt-detail-body"><div class="note">${escapeHtml(historyModelDescription())}</div>
+      ${histories.map(([w,h])=>{
+        if(!h.ok) return `<div class="flag">${w}：${escapeHtml(h.error)}。設定で累積型に戻すか、記録タブで観測を確認してください。</div>`;
+        const last=h.intervals.at(-1);
+        return `<details class="twt-disclosure"><summary>${w}：約${Math.round(h.bp).toLocaleString()}BP／${h.intervals.length}区間</summary><div class="twt-detail-body"><div class="note">安全側範囲 ${Math.floor(h.lower).toLocaleString()}〜${Math.ceil(h.upper).toLocaleString()}BP／直近ΔBP ${last.delta.toFixed(2)}（0床前 ${last.rawDelta.toFixed(2)}）／通常敗北 ${last.dl-last.heavyMax}〜${last.dl-last.heavyMin}件・重敗北 ${last.heavyMin}〜${last.heavyMax}件（直近区間）／0床 ${h.floorCount}区間／係数判定不明 ${h.coefficientUncertainCount}区間／勝敗順序不明 ${h.orderUncertainCount}区間。${h.baselineLate?'週初が月曜0:00と一致しないため、欠けた時間帯を含まない近似です。':''}${h.archivedCount?`旧版・訂正等の計算対象外記録${h.archivedCount}件あり。記録タブで確認できます。`:''}</div>
+        <div style="overflow-x:auto"><table class="twt-table"><thead><tr><th>時刻</th><th>Δ勝／Δ敗</th><th>重敗北数範囲</th><th>区間末BP</th><th>0床</th></tr></thead><tbody>${h.intervals.slice(-60).map(s=>`<tr><td>${escapeHtml(fmtTime(s.capturedAt))}</td><td>${s.dw}／${s.dl}</td><td>${s.heavyMin}〜${s.heavyMax}</td><td>${Math.round(s.bp).toLocaleString()}</td><td>${s.floorApplied?'適用':'−'}</td></tr>`).join('')}</tbody></table></div><div class="note">直近60区間を表示。計算には全区間を使用します。</div></div></details>`;
+      }).join('')}</div></details>`;
+  }
+  function renderBpValidationPanel(weekId){
+    const entries=(state.bpValidations||[]).filter(v=>v.weekId===weekId).sort((a,b)=>Date.parse(b.capturedAt)-Date.parse(a.capturedAt));
+    const latest=state.snapshots.filter(s=>s.weekId===weekId&&s.isActive&&s.snapshotType==='REPORT').sort((a,b)=>Date.parse(b.capturedAt)-Date.parse(a.capturedAt))[0];
+    const time=latest ? new Date(Date.parse(latest.capturedAt)-new Date(latest.capturedAt).getTimezoneOffset()*60000).toISOString().slice(0,19) : '';
+    return `<details class="twt-disclosure"><summary>実測BPの検証記録（${entries.length}件）</summary><div class="twt-detail-body"><div class="note">魔女回答の戦闘BP（満月分を除いた値）を入力します。同時刻の週初・REPORT履歴が必要です。係数を再調整せず、保存時の3モデル予測と誤差を固定します。後の観測訂正でも上書きしません。旧モデルは現在の保存係数を使います。</div>
+      <label class="twt-label">実測・REPORT取得日時</label><input type="datetime-local" step="1" id="bp-actual-time" value="${escapeAttr(time)}">
+      ${REPORT_ORDER.map(w=>`<label class="twt-label">${w} 実測BP（未入力は保存しない）</label><input type="number" min="0" step="any" data-bp-actual="${w}">`).join('')}
+      <button class="small" id="bp-actual-save">予測・誤差を固定保存</button>
+      <div style="overflow-x:auto"><table class="twt-table"><thead><tr><th>時刻／対象</th><th>実測</th><th>旧式／誤差</th><th>累積試験／誤差</th><th>履歴型／誤差</th></tr></thead><tbody>${entries.slice(0,40).map(v=>{
+        const now=replayBpHistory(weekId,v.wicca,v.capturedAt),changed=!now.ok||historyBasisKey(now.basis)!==v.basisKey;
+        return `<tr><td>${escapeHtml(fmtTime(v.capturedAt))} ${v.wicca}${changed?'（入力変更あり・保存時の値）':''}</td><td>${v.actualBP.toLocaleString()}</td>${['legacy','experimental','history'].map(id=>`<td>${Math.round(v.predictions[id].bp).toLocaleString()}／${Math.round(v.predictions[id].error).toLocaleString()}</td>`).join('')}</tr>`;
+      }).join('')}</tbody></table></div><div class="note">誤差＝予測−実測。直近40件表示。10/17東の6174BPは調整標本の区間近似で、独立検証ではありません。10/3東の履歴型レンジは元の全履歴がないため自動検証していません。</div></div></details>`;
+  }
+  function bindBpValidationEvents(){
+    const button=$('#bp-actual-save');if(!button) return;
+    button.onclick=async()=>{
+      const before=cloneJson(state);
+      try{
+        const input=$('#bp-actual-time').value;if(!input) throw new Error('実測時刻を入力してください');
+        let count=0;
+        document.querySelectorAll('[data-bp-actual]').forEach(el=>{
+          if(el.value!==''){captureBpValidation(selectedWeekId,el.dataset.bpActual,new Date(input).toISOString(),Number(el.value));count++;}
+        });
+        if(!count) throw new Error('実測BPを1件以上入力してください');
+        validateStateData(state);
+        if(!await saveState()) throw new Error('保存に失敗しました');
+        render();toast(`${count}件の予測誤差を固定保存しました。`);
+      }catch(e){state=before;toast(e.message);}
+    };
   }
 
   function renderConfirmedWeekSummary(weekId){
@@ -3760,7 +4245,7 @@ ${myWicca ? `自ウィッカ${myWicca}:${territoryMap[myWicca]}p / ` : ''}${phas
       const moonPart = calc.moonBonusApplicable
         ? ` / 満月込み推定${r.rankWithMoon}位${r.rankFlipped?'（順位変動）':''}`
         : '';
-      return `${r.wicca}: 週間${r.weekWins}勝 ${r.weekLosses}敗 / 純増${r.netGain} / 予測BP ${Math.round(r.predictedBP)} / 満月抜き目安${r.rankSuggested}位${moonPart} / 累積領土p ${territory}${flags.length?' ['+flags.join('・')+']':''}${r.zoneNote?' / '+r.zoneNote:''}`;
+      return `${r.wicca}: 週間${r.weekWins}勝 ${r.weekLosses}敗 / 純増${r.netGain} / 予測BP ${Math.round(r.predictedBP)}${r.history ? `（区間近似・安全側範囲${Math.floor(r.history.lower)}〜${Math.ceil(r.history.upper)}）` : ''} / 満月抜き目安${r.rankSuggested}位${moonPart} / 累積領土p ${territory}${flags.length?' ['+flags.join('・')+']':''}${r.zoneNote?' / '+r.zoneNote:''}`;
     }).join('\n');
 
     const territorySorted = [...WICCA].sort((a,b)=> territoryMap[b] - territoryMap[a]);
@@ -3826,7 +4311,7 @@ ${goalProposalInputsText(selectedWeekId)}
 
     const notes = [];
     if(isPastWeek(week) && !hasConfirmedFinalResultSet(week)) notes.push('この週は締め境界を過ぎていますが最終順位は未確定です。WEEK_STARTと最終REPORTの差分を「締め後の最終報告」として扱っています。');
-    notes.push(`BP予測式: ${BP_MODELS[calc.modelId]}（a=${calc.coeffA}, b1=${calc.coeffB1}, b2=${calc.coeffB2}）: a×勝数 − b1×min(敗数,勝数) − b2×max(0,敗数−勝数)。非公式の暫定モデルであり、確定式ではない。2026/10/3の新モデル実測比較では東の過大予測が大きいため、精密な境界値の根拠にしない。`);
+    notes.push(calc.modelId==='history' ? historyModelDescription(calc) : `BP予測式: ${BP_MODELS[calc.modelId]}（a=${calc.coeffA}, b1=${calc.coeffB1}, b2=${calc.coeffB2}）: a×勝数 − b1×min(敗数,勝数) − b2×max(0,敗数−勝数)。非公式の暫定モデルであり、確定式ではない。2026/10/3の新モデル実測比較では東の過大予測が大きいため、精密な境界値の根拠にしない。`);
     notes.push(`満月: ${moonText}。+350,000BP自体は確定仕様。${territoryLeaderP < CONQUEST_THRESHOLD ? '現行運用ではまだ制覇前で枷システム未起動のため、満月半減は考慮しない。' : '100p以上の制覇判定域に入った後の枷状態はツールが自動追跡しない。'}通常戦果BPが推定であるため「満月込み順位」は推定。`);
     notes.push(`累積領土pは週間BP・週間順位とは別の長期戦略軸。自ウィッカとの相対差と、先頭が100p制覇までどれだけ近いかを攻撃先選択の補正材料として使う。90pは枷条件ではなく、制覇接近で行動変化が起きやすい経験則上の警戒域。`);
     if(calc.earlyStage) notes.push(`週の経過は約${Math.round(calc.elapsedFraction*100)}%。序盤のため順位・差は参考程度。`);
@@ -3883,7 +4368,7 @@ ${teaText}
 
 ■ツールの推定モデル
 - 個々のバトル種別・勝率を集計値から分解できないため、週間順位の目安には勝敗数だけから算出する経験的な予測BattlePointを使う。
-- BP予測式は a×勝数 − b1×min(敗数,勝数) − b2×max(0,敗数−勝数)。使用モデル=${BP_MODELS[selectedBpModel()]}、現在の係数 a=${activeCoefficients.a}、b1=${activeCoefficients.b1}、b2=${activeCoefficients.b2}。公式式ではなく経験的推定値。新モデルの2026/10/3比較では東の過大予測が大きい。
+- ${selectedBpModel()==='history' ? historyModelDescription() : 'BP予測式は a×勝数 − b1×min(敗数,勝数) − b2×max(0,敗数−勝数)。'}使用モデル=${BP_MODELS[selectedBpModel()]}、現在の係数 a=${activeCoefficients.a}、b1=${activeCoefficients.b1}、b2=${activeCoefficients.b2}。公式式ではなく経験的推定値。${selectedBpModel()==='history' ? '履歴型の観測順序不明はレンジとともに扱う。' : '累積型・試験モデルの2026/10/3比較では東の過大予測が大きい。'}
 - したがって、予測BPから「12,928勝」のような精密な戦術境界を確定値として扱わない。必要なら「約1.3万規模」のように丸め、実データ更新ごとに再評価する。
 - 満月ボーナス+350,000BP自体は確定値で、制覇前フェーズでは枷による半減はない。通常戦果BPが推定であるため「満月込み推定順位」は最終順位の確定値ではない。制覇発生後は、本ツールが枷状態を自動追跡しないため別途確認が必要。
 
@@ -4299,12 +4784,13 @@ ${common}`;
     const dateStr = fmtReportDate(capturedAt);
     let lines = [];
     lines.push(dateStr);
+    if(calc.modelId==='history') lines.push('履歴型0床モデル（実験・区間末近似／観測順序不明あり）');
     if(reportAvailability(week).kind==='closed_snapshot') lines.push('締め後・結果未確定（BP・順位は推定）');
     REPORT_ORDER.forEach(w=>{
       const p = territoryForWeekContext(w, week.weekId);
       const r = calc.byWicca[w];
       lines.push(`${w}(${p}p) ${r.weekWins.toLocaleString()} 勝 ${r.weekLosses.toLocaleString()} 敗`);
-      lines.push(`　予測BP: ${Math.round(r.predictedBP).toLocaleString()}`);
+      lines.push(`　予測BP: ${Math.round(r.predictedBP).toLocaleString()}${r.history ? `（順序不明の安全側範囲 ${Math.floor(r.history.lower).toLocaleString()}〜${Math.ceil(r.history.upper).toLocaleString()}）` : ''}`);
     });
     lines.push('');
     const moonLabel = moonDisplayLabel(week);
@@ -4357,10 +4843,10 @@ ${common}`;
     html += `<button class="small" id="save-territory-btn">初期値を保存</button></div>`;
 
     html += `<div class="twt-card"><h3>BP推定モデル <span class="twt-tag est">試験機能</span></h3>
-      <div class="note">旧モデルを維持したまま、新しい経験係数を試せます。切替は戦況・レポート・ChatGPT相談へ共通で適用されます。どちらも公式式ではありません。</div>
+      <div class="note">旧モデルを維持したまま、新しい経験係数を試せます。切替は戦況・レポート・ChatGPT相談へ共通で適用されます。いずれも公式式ではありません。</div>
       <label class="twt-label" for="settings-bp-model">使用モデル</label>
       <select id="settings-bp-model" style="width:100%;">${bpModelOptionsHtml(selectedBpModel())}</select>
-      <div class="note" style="margin-top:7px;">旧式の現在の保存係数 a=${c.bpEstimateCoeffA}, b1=${c.bpEstimateCoeffB1}, b2=${c.bpEstimateCoeffB2}（以前のアプリ既定値8.06/0.26/2.68を維持）。研究資料上の詳細旧係数は8.056/0.257/2.678です。旧式係数は下で編集できます。試験モデルは固定 a=8.056, b1=2.559, b2=3.972。両モデルとも BP ≈ a×勝数 − b1×min(敗数,勝数) − b2×max(0,敗数−勝数)。</div>
+      <div class="note" style="margin-top:7px;">旧式の現在の保存係数 a=${c.bpEstimateCoeffA}, b1=${c.bpEstimateCoeffB1}, b2=${c.bpEstimateCoeffB2}（以前のアプリ既定値8.06/0.26/2.68を維持）。研究資料上の詳細旧係数は8.056/0.257/2.678です。旧式係数は下で編集できます。試験モデルは固定 a=8.056, b1=2.559, b2=3.972。履歴型は固定 a=8.056, b1=2.559, b2=10・区間末0床近似。観測追加・訂正後は時系列を再計算します。累積型2種は BP ≈ a×勝数 − b1×min(敗数,勝数) − b2×max(0,敗数−勝数)。</div>
       <div class="twt-row"><div style="flex:2">旧式 a（集計上の経験係数）</div><div><input type="number" step="0.001" id="bp-coeff-a" value="${c.bpEstimateCoeffA}"></div></div>
       <div class="twt-row"><div style="flex:2">b1（敗数≤勝数の間、1敗あたりの減点）</div><div><input type="number" step="0.001" id="bp-coeff-b1" value="${c.bpEstimateCoeffB1}"></div></div>
       <div class="twt-row"><div style="flex:2">b2（敗数が勝数を超えた分、1敗あたりの減点）</div><div><input type="number" step="0.001" id="bp-coeff-b2" value="${c.bpEstimateCoeffB2}"></div></div>
