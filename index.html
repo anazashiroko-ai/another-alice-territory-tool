@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-FjXJ0nFlT5wM9BprkLrnXHlcicePRN/eIPpGAGPnRMs='; script-src-attr 'none'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; child-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-L0Rn51oVBBmvomGzFRRebscBL3ARkLLlenqqRtCwNFc='; script-src-attr 'none'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; child-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="color-scheme" content="dark">
 <title>領土戦 戦況分析</title>
 <style>
@@ -192,7 +192,7 @@ body{overflow-x:hidden;}
 <div id="twt-root">
   <div id="twt-header">
     <div>
-      <h1>領土戦 戦況分析 <span class="app-version">v0.8.3</span></h1>
+      <h1>領土戦 戦況分析 <span class="app-version">v0.8.4</span></h1>
       <button id="twt-helpbtn" type="button">基本操作説明（タップで開く）</button>
       <div class="sub" id="twt-week-sub">読み込み中…</div>
     </div>
@@ -325,13 +325,13 @@ body{overflow-x:hidden;}
 </div>
 
 <script>
-// Standalone migration build: v0.8.3 (persistent observations, interval-floor BP experiments, frozen validation)
+// Standalone migration build: v0.8.4 (persistent observations, interval-floor BP experiments, frozen validation)
 (function(){
   const startupWarning = document.getElementById('twt-startup-warning');
   if(startupWarning) startupWarning.remove();
   const WICCA = ['東','西','南','北'];
   const REPORT_ORDER = ['南','北','東','西'];
-  const APP_VERSION = '0.8.3';
+  const APP_VERSION = '0.8.4';
   // 旧係数は保存された既存利用者の設定を維持する。新係数は比較試験用の固定値。
   const BP_MODELS = Object.freeze({legacy:'旧経験式（保存係数）', experimental:'累積型・試験モデル', history:'履歴型0床モデル（実験・区間近似）'});
   const BP_EXPERIMENTAL = Object.freeze({a:8.056, b1:2.559, b2:3.972});
@@ -2471,6 +2471,28 @@ body{overflow-x:hidden;}
     const cases = [];
     const add = (id, name, fn)=> cases.push({id, name, fn});
 
+    add('RT2','報告：通常・特殊満月の加算済みBP、総満月・停止週の非表示',()=>{
+      const f=makeHistoryRegressionFixture();withRegressionState(f.state,()=>{
+        const week=getWeek(f.weekId);
+        for(const model of ['legacy','experimental','history']){
+          for(const status of ['NORMAL','SPECIAL_MOON_ITEM','TOTAL_FULL_MOON','TERRITORY_SUSPENDED']){
+            week.weekStatus=status;week.moonTarget='南';week.actualMoonTarget='北';
+            const calc=computeSuggestedRanking(f.weekId,model);
+            if(!calc){regressionAssertEqual(status,'TERRITORY_SUSPENDED','停止週のみ計算なし');continue;}
+            const before=JSON.stringify(calc),text=buildReportText(week,calc);
+            regressionAssertEqual(JSON.stringify(calc),before,'基本BP・順位は変更しない');
+            if(status==='NORMAL'||status==='SPECIAL_MOON_ITEM'){
+              const target=status==='NORMAL'?'南':'北';
+              const line=`満月加算済み予測BP(${target}): ${Math.round(calc.byWicca[target].predictedBP+350000).toLocaleString()}`;
+              regressionAssert(text.includes('\n\n'+line+'\n\n満月:'),'4陣営の後に加算済み表示');
+            }else regressionAssert(!text.includes('満月加算済み予測BP('),'非適用週は表示なし');
+          }
+        }
+        week.weekStatus='NORMAL';const calc=computeSuggestedRanking(f.weekId,'history');
+        calc.byWicca['南'].predictedBP=170854;
+        regressionAssert(buildReportText(week,calc).includes('満月加算済み予測BP(南): 520,854'),'依頼例の数値');
+      });
+    });
     add('RT1','報告テンプレート：モデル名を満月加算直下へ移し、範囲表記を簡潔化',()=>{
       const f=makeHistoryRegressionFixture();withRegressionState(f.state,()=>{
         for(const model of ['legacy','experimental','history']){
@@ -2481,7 +2503,7 @@ body{overflow-x:hidden;}
           regressionAssert(!text.includes('区間末近似／観測順序不明あり'),'冒頭注記を除去');
           if(model==='history'){
             regressionAssertEqual(lines[moon+1],'使用BP計算モデル:履歴型0床モデル','指定名称');
-            regressionAssertEqual((text.match(/勝敗順序による予測範囲/g)||[]).length,4,'4陣営の範囲');
+            regressionAssertEqual((text.match(/予測範囲/g)||[]).length,4,'4陣営の範囲');
             regressionAssert(!text.includes('安全側範囲'),'旧表現なし');
           }
         }
@@ -5017,9 +5039,14 @@ ${common}`;
       const p = territoryForWeekContext(w, week.weekId);
       const r = calc.byWicca[w];
       lines.push(`${w}(${p}p) ${r.weekWins.toLocaleString()} 勝 ${r.weekLosses.toLocaleString()} 敗`);
-      lines.push(`　予測BP: ${Math.round(r.predictedBP).toLocaleString()}${r.history ? `（勝敗順序による予測範囲 ${Math.floor(r.history.lower).toLocaleString()}〜${Math.ceil(r.history.upper).toLocaleString()}）` : ''}`);
+      lines.push(`　予測BP: ${Math.round(r.predictedBP).toLocaleString()}${r.history ? `（予測範囲 ${Math.floor(r.history.lower).toLocaleString()}〜${Math.ceil(r.history.upper).toLocaleString()}）` : ''}`);
     });
     lines.push('');
+    if(calc.moonBonusApplicable && calc.byWicca[calc.moonTargetEff]){
+      const moonBP=calc.byWicca[calc.moonTargetEff].predictedBP+calc.moonBonusBP;
+      lines.push(`満月加算済み予測BP(${calc.moonTargetEff}): ${Math.round(moonBP).toLocaleString()}`);
+      lines.push('');
+    }
     const moonLabel = moonDisplayLabel(week);
     lines.push(`満月:${moonLabel}`);
     const nextMoon = week.nextMoonOverride || nextWeekMoonLabel(week) || '未定（設定タブで入力できます）';
@@ -5720,3 +5747,4 @@ ${common}`;
 
 </body>
 </html>
+
